@@ -1,0 +1,12 @@
+# Klarion AI-mode benchmark config: adjudicate via a logged-in Claude Code CLI.
+[ai]
+mode = "on"
+provider = "claude-cli"
+model = "haiku"
+max_batch = 10
+timeout_seconds = 600
+on_error = "fail"            # benchmark integrity: no silent unverified batches
+filter_false_positives = true
+min_confidence = 0.6
+send_secret = true
+max_context_lines = 5

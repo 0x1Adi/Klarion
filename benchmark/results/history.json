@@ -1,0 +1,7 @@
+{
+  "dataset": "leaky-repo full git history (25 commits, real multi-year history)",
+  "note": "counts of findings reported when scanning all history; detect-secrets and ripsecrets do not support history scanning",
+  "klarion":     {"findings": 103, "files": 21, "command": "klarion git --history --no-ai -f json <repo>"},
+  "gitleaks":   {"findings": 26,  "files": 13, "command": "gitleaks git <repo>"},
+  "trufflehog": {"findings": 12,  "files": 8,  "command": "trufflehog git file://<repo> --json --no-verification"}
+}

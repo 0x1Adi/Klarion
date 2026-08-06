@@ -1,0 +1,111 @@
+# goreleaser v2 configuration for Klarion.
+# Docs: https://goreleaser.com — validate locally with `goreleaser check`.
+version: 2
+
+project_name: klarion
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: klarion
+    main: ./cmd/klarion
+    binary: klarion
+    env:
+      - CGO_ENABLED=0 # fully static binaries for distroless/scratch images
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    # Inject build metadata into the frozen main.version/commit/date vars.
+    ldflags:
+      - -s -w
+      - -X main.version={{ .Version }}
+      - -X main.commit={{ .Commit }}
+      - -X main.date={{ .Date }}
+
+archives:
+  - id: klarion
+    ids:
+      - klarion
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    # tar.gz everywhere, zip on Windows for native tooling.
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+# Keyless cosign signature over checksums.txt.
+#
+# A checksum file downloaded from the same release it verifies proves the
+# archive was not corrupted in transit — it proves nothing about who built it,
+# because anyone who can replace the archive can replace the checksums beside
+# it. The signature closes that gap: it is issued against this workflow's OIDC
+# identity and logged in Rekor, so a consumer can verify the artifact was built
+# by this repository's release workflow and not substituted afterwards.
+#
+# Verify with:
+#   cosign verify-blob checksums.txt \
+#     --signature checksums.txt.sig --certificate checksums.txt.pem \
+#     --certificate-identity-regexp '^https://github\.com/0x1Adi/Klarion/\.github/workflows/release\.yml@refs/tags/v' \
+#     --certificate-oidc-issuer https://token.actions.githubusercontent.com
+signs:
+  - cmd: cosign
+    signature: "${artifact}.sig"
+    certificate: "${artifact}.pem"
+    args:
+      - "sign-blob"
+      - "--output-signature=${signature}"
+      - "--output-certificate=${certificate}"
+      - "${artifact}"
+      - "--yes"
+    artifacts: checksum
+    output: true
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "Merge pull request"
+      - "Merge branch"
+
+# DEFERRED TO v0.1.1 — Homebrew tap and GHCR image.
+#
+# Both were removed from v0.1.0 deliberately. `brews:` referenced
+# {{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}, and goreleaser hard-errors on an unset
+# .Env key; the tap repo (0x1Adi/homebrew-tap) does not exist yet, and the
+# repo-scoped GITHUB_TOKEN cannot push to a different repository regardless.
+# A failure in either publisher aborts `release --clean` and takes the binaries
+# and archives down with it — so a broken tap would mean no release at all.
+#
+# To re-enable: create 0x1Adi/homebrew-tap, add a PAT with `contents: write` on
+# it as the HOMEBREW_TAP_GITHUB_TOKEN secret, restore the blocks, and restore
+# the Buildx + GHCR login steps in .github/workflows/release.yml.
+
+release:
+  github:
+    owner: 0x1Adi
+    name: Klarion
+  draft: false
+  prerelease: auto

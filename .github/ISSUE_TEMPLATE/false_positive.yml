@@ -1,0 +1,48 @@
+name: False positive or missed secret
+description: Klarion flagged something safe, or missed something real
+labels: ["detection"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Detection accuracy is the whole point of Klarion, so these reports are genuinely useful.
+
+        **Redact any real credential before posting.** Replace the middle with `****` or swap in a fake value of the same shape.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Which is it?
+      options:
+        - "False positive, Klarion flagged something that is not a secret"
+        - "Missed secret, Klarion did not flag a real leaked credential"
+    validations:
+      required: true
+  - type: textarea
+    id: snippet
+    attributes:
+      label: The code, redacted
+      description: A minimal snippet that shows the pattern, with any real value masked.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: rule
+    attributes:
+      label: Rule ID
+      description: From the report, for example generic-high-entropy. Leave blank if it was a miss.
+  - type: textarea
+    id: verdict
+    attributes:
+      label: What Klarion reported
+      description: Paste the finding, including the AI verdict and reason if you have them.
+      render: text
+  - type: dropdown
+    id: ai
+    attributes:
+      label: Was AI adjudication on?
+      options:
+        - "Yes"
+        - "No, offline heuristic"
+        - "Not sure"
+    validations:
+      required: true

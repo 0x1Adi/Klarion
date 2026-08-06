@@ -1,0 +1,14 @@
+{
+  "name": "klarion",
+  "version": "0.1.0",
+  "description": "AI-native secret scanner. Blocks the agent from writing or committing leaked secrets, using Rényi-entropy detection plus AI adjudication.",
+  "author": {
+    "name": "The Klarion Authors",
+    "url": "https://github.com/0x1Adi/Klarion"
+  },
+  "homepage": "https://github.com/0x1Adi/Klarion",
+  "license": "MIT",
+  "keywords": ["security", "secrets", "secret-scanning", "pre-commit", "entropy"],
+  "hooks": "./hooks/hooks.json",
+  "mcpServers": "./mcp/servers.json"
+}

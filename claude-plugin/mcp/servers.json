@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "klarion": {
+      "command": "klarion",
+      "args": ["mcp"],
+      "env": {}
+    }
+  }
+}

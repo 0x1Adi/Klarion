@@ -1,0 +1,13 @@
+# Minimal Dockerfile consumed by goreleaser's `dockers` block.
+#
+# goreleaser builds the binary itself and provides it in the build context, so
+# this image just wraps the prebuilt static binary in a distroless base.
+FROM gcr.io/distroless/static:nonroot
+
+COPY klarion /usr/local/bin/klarion
+
+USER nonroot:nonroot
+WORKDIR /work
+
+ENTRYPOINT ["klarion"]
+CMD ["scan", "."]

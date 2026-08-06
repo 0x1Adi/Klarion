@@ -1,0 +1,56 @@
+name: Bug report
+description: Something broke or behaved unexpectedly
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please never paste a real secret into this issue, even an expired one. Redact it first.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What did you expect, and what did you get instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce
+      description: The smallest example that triggers it, plus the exact command you ran.
+      placeholder: |
+        1. Create a file with...
+        2. Run klarion scan .
+        3. See...
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Klarion version
+      description: Output of `klarion version`
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS and architecture
+      placeholder: macOS 15 arm64, Ubuntu 24.04 amd64, ...
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Config
+      description: Your .klarion.toml, if you're using one. Redact anything sensitive.
+      render: toml
+  - type: dropdown
+    id: ai
+    attributes:
+      label: Were you using AI adjudication?
+      options:
+        - "Yes, Anthropic"
+        - "Yes, OpenAI compatible"
+        - "Yes, Ollama or local"
+        - "No, offline heuristic"
+        - "Not sure"

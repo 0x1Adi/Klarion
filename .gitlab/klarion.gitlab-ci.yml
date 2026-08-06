@@ -1,0 +1,46 @@
+# Klarion — GitLab CI template for secret detection.
+#
+# Include it from your .gitlab-ci.yml:
+#
+#   include:
+#     - local: '.gitlab/klarion.gitlab-ci.yml'
+#
+# The job emits a GitLab-native Secret Detection report so findings surface in
+# the merge-request security widget and the vulnerability dashboard.
+#
+# allow_failure guidance:
+#   - Leave `allow_failure: false` (the default here) to BLOCK merges when
+#     secrets are found — recommended for protected branches.
+#   - Set `allow_failure: true` while rolling Klarion out, so the report is
+#     produced and visible without gating pipelines.
+#   - Provide ANTHROPIC_API_KEY as a masked/protected CI/CD variable to enable
+#     AI verification; without it, set `--ai-mode off`.
+
+klarion_secret_scan:
+  stage: test
+  image: golang:1.25
+  variables:
+    # Speed up module downloads across pipeline runs.
+    GOFLAGS: "-trimpath"
+  script:
+    - go build -o /usr/local/bin/klarion ./cmd/klarion
+    # exit 1 = findings, exit 2 = operational error. We tolerate 1 here so the
+    # report artifact is always produced; gating is controlled by allow_failure
+    # and by GitLab's vulnerability policies.
+    - |
+      klarion scan . --format gitlab > klarion-gl.json || rc=$?
+      if [ "${rc:-0}" = "2" ]; then
+        echo "klarion failed to run" >&2
+        exit 2
+      fi
+  allow_failure: false
+  artifacts:
+    when: always
+    reports:
+      secret_detection: klarion-gl.json
+    paths:
+      - klarion-gl.json
+    expire_in: 1 week
+  rules:
+    - if: '$CI_MERGE_REQUEST_IID'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'

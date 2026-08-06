@@ -1,0 +1,28 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "klarion hook --event pre-tool-use",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "PreToolUse:Bash": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "klarion hook --event pre-tool-use --bash",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}

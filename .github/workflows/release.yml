@@ -1,0 +1,58 @@
+# Release automation for Klarion.
+#
+# Triggered by pushing a semver tag (e.g. `v1.2.3`). goreleaser cross-compiles,
+# archives, checksums, and publishes binaries to the GitHub Release, and cosign
+# signs the checksum file so consumers can verify provenance, not just
+# integrity.
+#
+# Actions are pinned to commit SHAs (see the note in ci.yml).
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  goreleaser:
+    name: goreleaser
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create GitHub Releases and upload assets
+      id-token: write # keyless cosign signing via the OIDC token
+      attestations: write # build provenance attestation
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0 # full history + tags so `git describe` works
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: "1.25"
+          cache: true
+
+      # cosign signs checksums.txt keylessly: the signing identity is this
+      # workflow's OIDC token, recorded in the public Rekor transparency log.
+      # There is no private key to store or rotate.
+      - name: Install cosign
+        uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+
+      # NOTE: Buildx + GHCR login steps were removed alongside the `dockers:`
+      # block in .goreleaser.yaml. Restore both together when re-enabling image
+      # publishing in v0.1.1 — goreleaser pushes during `release --clean`, so a
+      # `dockers:` block without a logged-in registry aborts the whole release.
+      - name: Run goreleaser
+        uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          # Repo-scoped: enough to create the Release and upload assets here.
+          # It CANNOT push to a separate tap repo — that needs a PAT, added
+          # back with the `brews:` block in v0.1.1.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

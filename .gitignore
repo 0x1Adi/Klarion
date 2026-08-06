@@ -1,0 +1,40 @@
+# Binaries
+/klarion
+/dist/
+*.test
+
+# Go coverage and test output
+*.out
+coverage.out
+coverage.html
+
+# Benchmark corpora are fetched, not vendored. These are 121 MB of third party
+# repos that each carry their own .git, so committing them would bloat the repo
+# and create phantom submodules. Run benchmark/fetch-datasets.sh to get them.
+benchmark/datasets/
+
+# Raw scanner output is NOT published. It is verbatim tool output over
+# leaky-repo, so it reproduces that corpus's credentials line by line. Those
+# are third party secrets in a public dataset and republishing them here would
+# make this repo a second copy. Scores, timings and the agent study are the
+# publishable evidence. Re-run benchmark/harness/run_benchmark.py to regenerate
+# the raw output locally.
+benchmark/results/raw/
+
+# Business material. Pitch deck, pricing rationale, competitive teardown,
+# launch plan and unannounced product strategy. This does not belong in a
+# public repo. Keep it in a private repo or move the site to its own.
+marketing/
+
+# Demo fixture. Generated, not committed: it has to hold credentials in real
+# issuer formats to be a useful smoke test, and unlike the Go tests a .env file
+# cannot hide those behind a concatenation. Run testdata/gen-leaky-env.sh.
+testdata/leaky.env
+
+# Local state. The verdict ledger under .klarion/ contains no secrets (one-way
+# hashes and a status), so committing it is a supported choice — teams that want
+# reviewable, reproducible suppressions do exactly that. Ignored by default
+# because most projects would rather restore it from their CI cache.
+.klarion/
+.claude/
+.DS_Store

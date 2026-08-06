@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 360" width="1000" height="360" role="img" aria-label="False positives on 3,700 files of clean code. Klarion 0, trufflehog 9, gitleaks 33, ripsecrets 61, detect-secrets 247.">
+  <rect width="1000" height="360" rx="16" fill="#14110f"/>
+
+  <text x="40" y="52" font-family="Helvetica, Arial, sans-serif" font-size="20" font-weight="600" fill="#faf7f2">False positives on 3,700 files of clean code</text>
+  <text x="40" y="76" font-family="Helvetica, Arial, sans-serif" font-size="13" fill="#968d83">Flask and Rails at HEAD. Every finding here is noise, so lower is better.</text>
+
+  <text x="40" y="131" font-family="Helvetica, Arial, sans-serif" font-size="15" font-weight="700" fill="#faf7f2">Klarion</text>
+  <rect x="200" y="118" width="5" height="18" rx="2" fill="#a4d4c5"/>
+  <text x="218" y="133" font-family="Helvetica, Arial, sans-serif" font-size="17" font-weight="700" fill="#a4d4c5">0</text>
+  <text x="240" y="132" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#6b635b">nothing to triage</text>
+
+  <text x="40" y="176" font-family="Helvetica, Arial, sans-serif" font-size="15" fill="#c7bfb5">trufflehog</text>
+  <rect x="200" y="163" width="26" height="18" rx="4" fill="#5c6b7f"/>
+  <text x="238" y="177" font-family="Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#c7bfb5">9</text>
+
+  <text x="40" y="221" font-family="Helvetica, Arial, sans-serif" font-size="15" fill="#c7bfb5">gitleaks</text>
+  <rect x="200" y="208" width="94" height="18" rx="4" fill="#5c6b7f"/>
+  <text x="306" y="222" font-family="Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#c7bfb5">33</text>
+
+  <text x="40" y="266" font-family="Helvetica, Arial, sans-serif" font-size="15" fill="#c7bfb5">ripsecrets</text>
+  <rect x="200" y="253" width="173" height="18" rx="4" fill="#e8b94a"/>
+  <text x="385" y="267" font-family="Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#c7bfb5">61</text>
+
+  <text x="40" y="311" font-family="Helvetica, Arial, sans-serif" font-size="15" fill="#c7bfb5">detect-secrets</text>
+  <rect x="200" y="298" width="700" height="18" rx="4" fill="#ff4d8b"/>
+  <text x="912" y="312" font-family="Helvetica, Arial, sans-serif" font-size="15" font-weight="600" fill="#c7bfb5">247</text>
+
+  <text x="40" y="344" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#6b635b">Measured 2026-07-09. Method and raw output in benchmark/REPORT.md</text>
+</svg>

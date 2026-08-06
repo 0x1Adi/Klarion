@@ -1,0 +1,24 @@
+# Klarion's own scan configuration (we dogfood our scanner in CI).
+# Fixture files intentionally contain documented-fake secrets.
+
+[allowlist]
+paths = [
+  "testdata/**",
+  "docs/**",
+  "examples/**",
+  "**/*_test.go",
+  "internal/rules/builtin.go",
+  # Benchmark audit notes quote the corpus lines they classify, so the study
+  # output reads as secret-bearing. The corpora themselves are not committed.
+  "benchmark/results/**",
+  # Third-party benchmark corpora, fetched by benchmark/fetch-datasets.sh and
+  # gitignored. leaky-repo exists to be full of credentials, so scanning it
+  # during a dogfood run is pure noise — it is measured deliberately by the
+  # harness instead.
+  "benchmark/datasets/**",
+  "benchmark/REPORT.md",
+  "DESIGN.md",
+  "README.md",
+  "CHANGELOG.md",
+  "claude-plugin/**",
+]

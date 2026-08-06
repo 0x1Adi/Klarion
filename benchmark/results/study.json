@@ -1,0 +1,811 @@
+{
+  "fp": [
+    {
+      "tool": "klarion",
+      "audit": {
+        "tool": "klarion",
+        "summary": {
+          "dummy_fixture": 4,
+          "placeholder_example": 25,
+          "noise": 65,
+          "possibly_real": 0,
+          "total_reviewed": 94
+        },
+        "notable": [
+          {
+            "file": "railties/test/application/assets_test.rb",
+            "line": 84,
+            "rule": "postgres-connection-uri",
+            "class": "dummy_fixture",
+            "note": "Real-format URI 'postgresql://baduser:badpass@127.0.0.1/dbname' committed intentionally to prove asset precompile never connects to the DB. Defensible flag."
+          },
+          {
+            "file": "railties/test/commands/dbconsole_test.rb",
+            "line": 50,
+            "rule": "postgres-connection-uri",
+            "class": "dummy_fixture",
+            "note": "ENV['DATABASE_URL'] = 'postgresql://foo:bar@localhost:9000/foo_test...' used as a parsing fixture in tests (also line 69)."
+          },
+          {
+            "file": "railties/lib/rails/generators/rails/app/templates/github/ci.yml.tt",
+            "line": 148,
+            "rule": "postgres-connection-uri",
+            "class": "placeholder_example",
+            "note": "Generator template CI config: postgres://postgres:postgres@localhost:5432 \u2014 canonical throwaway CI service credentials."
+          },
+          {
+            "file": ".devcontainer/compose.yaml",
+            "line": 33,
+            "rule": "generic-password-assignment",
+            "class": "placeholder_example",
+            "note": "POSTGRES_PASSWORD: postgres for the local devcontainer database; well-known default dev value."
+          },
+          {
+            "file": "activemodel/lib/active_model/secure_password.rb",
+            "line": 104,
+            "rule": "generic-high-entropy",
+            "class": "placeholder_example",
+            "note": "Fabricated bcrypt digest ('$2a$04$iOfh...') inside an RDoc example comment for has_secure_password."
+          },
+          {
+            "file": "actiontext/app/assets/javascripts/actiontext.esm.js",
+            "line": 229,
+            "rule": "generic-high-entropy",
+            "class": "noise",
+            "note": "MD5('hello') = 5d41402abc4b2a76b9719d911017c592 \u2014 SparkMD5 self-test constant in vendored JS; also flagged in 3 other bundled asset files."
+          },
+          {
+            "file": "activerecord/lib/arel/visitors/mysql.rb",
+            "line": 24,
+            "rule": "generic-high-entropy",
+            "class": "noise",
+            "note": "The integer literal 18446744073709551615 (2^64-1, MySQL's LIMIT sentinel) flagged as a high-entropy secret."
+          },
+          {
+            "file": "activerecord/lib/active_record/store.rb",
+            "line": 17,
+            "rule": "generic-high-entropy",
+            "class": "noise",
+            "note": "RDoc prose '+saved_change_to_key+' flagged as high entropy \u2014 and reported TWICE on the same line (duplicate finding). ~15 similar RDoc-markup hits across activerecord/activesupport."
+          },
+          {
+            "file": "activestorage/Rakefile",
+            "line": 20,
+            "rule": "generic-high-entropy",
+            "class": "noise",
+            "note": "Travis CI encrypted env var NAMES (encrypted_0fb9444d0374_key/_iv) \u2014 references to variables, no secret values present."
+          },
+          {
+            "file": "actionpack/lib/action_controller/metal/request_forgery_protection.rb",
+            "line": 770,
+            "rule": "generic-secret-assignment",
+            "class": "noise",
+            "note": "encrypted_csrf_token = xor_byte_strings(...) \u2014 Rails' own CSRF implementation; any '*token* =' assignment fires. 5 hits in this file alone."
+          },
+          {
+            "file": "actionpack/lib/action_controller/metal/request_forgery_protection.rb",
+            "line": 72,
+            "rule": "generic-secret-assignment",
+            "class": "noise",
+            "note": "CSRF_TOKEN = \"action_controller.csrf_token\" \u2014 a rack env key-name constant, not a secret value."
+          },
+          {
+            "file": "src/flask/ctx.py",
+            "line": 331,
+            "rule": "generic-secret-assignment",
+            "class": "noise",
+            "note": "self._cv_token: contextvars.Token[AppContext] | None = None \u2014 a Python type annotation assigned None; matched purely on the word 'token'."
+          }
+        ],
+        "narrative": "klarion's generic rules are extremely noisy on framework code: 65 of 94 findings (69%) are pure noise, dominated by variable assignments inside Rails' own auth/CSRF/encryption implementation (any 'password =' or 'token =' fires generic-password/secret-assignment) and a generic-high-entropy rule that matches RDoc +markup+ prose, MD5 self-test constants, and even a bare integer literal \u2014 it also emitted a duplicate finding on one line. Another 25 are obvious placeholders in doc comments and generator/devcontainer templates (postgres:postgres, myuser:mypass), leaving only 4 defensible dummy-fixture hits: real-format postgres URIs committed in railties tests. Zero findings are plausibly live secrets; the tool's connection-URI rules carry real signal while its three generic rules are near-worthless on Ruby framework source."
+      },
+      "verification": {
+        "agree": true,
+        "corrections": [
+          "Nit: secure_password.rb:104 note calls the bcrypt digest 'fabricated'; it is more likely a genuine bcrypt hash (cost 4) of the doc's own example password '42password' committed as an RDoc example. Classification (placeholder_example) is unaffected \u2014 it is documentation content and a bcrypt digest is not a recoverable secret.",
+          "Nit: 'reported TWICE on the same line' for store.rb:17 is confirmed, but the '~15 similar RDoc-markup hits across activerecord/activesupport' is a slight approximation \u2014 I count roughly 13-15 in those two gems, with a few additional similar RDoc/doc-example hits living in actionview/actionpack instead."
+        ],
+        "notes": "Verified against benchmark/results/accuracy.json (klarion.flask: 1 finding, klarion.rails: 93 findings; sum 94 matches total_reviewed, and 4+25+65+0=94; the 'leaky' corpus is correctly excluded from the rails/flask scope). Spot-checked all 12 notable entries plus a full sweep of every remaining flagged line in benchmark/datasets/scan-targets/{rails,flask} \u2014 94/94 lines read. All notable file/line/rule/content claims are verbatim accurate, including the duplicate generic-high-entropy finding on activerecord/lib/active_record/store.rb:17 (appears twice in the findings array), exactly 5 generic-secret-assignment hits in request_forgery_protection.rb (lines 72, 737, 770, 785, 798), and the MD5('hello') constant in 4 bundled JS assets. dummy_fixture=4 maps exactly to the four postgres-URI hits in railties test files (assets_test.rb:84, sprockets_assets_test.rb:121, dbconsole_test.rb:50, dbconsole_test.rb:69). Adversarial hunt for missed possibly_real came up empty: the encryption key providers, credentials.yml.tt (commented '# password: my-smtp-password'), kamal-secrets.tt (commented env-var reference), message_encryptor(s), http_authentication, cookies.rb, signed_id.rb, and mysql task files all assign variables or show doc examples with no literal secret values; templates use canonical postgres:postgres defaults; the most real-looking strings (doc-example authenticity tokens in form_helper.rb:59 and url_helper.rb:239) are ephemeral CSRF-token examples, not credentials. possibly_real=0 stands. The 25/65 placeholder/noise split cannot be exactly reconstructed without per-finding labels, but no individual classification I checked was materially wrong; the two corrections listed are cosmetic and do not change the summary counts or the narrative's conclusion.\""
+      }
+    },
+    {
+      "tool": "gitleaks",
+      "audit": {
+        "tool": "gitleaks",
+        "summary": {
+          "dummy_fixture": 19,
+          "placeholder_example": 13,
+          "noise": 1,
+          "possibly_real": 0,
+          "total_reviewed": 33
+        },
+        "notable": [
+          {
+            "file": "benchmark/datasets/scan-targets/rails/actionmailbox/test/controllers/ingresses/mailgun/inbound_emails_controller_test.rb",
+            "line": 21,
+            "rule": "generic-api-key",
+            "class": "dummy_fixture",
+            "note": "50-char Mailgun webhook token fixture '7VwW7k6Ak7z...' repeated verbatim in 10 of the 11 findings in this one file (plus a 'forged' variant at line 151); no dedup means one fixture yields 11 findings. The actual signing key fixture at line 8 was not even the flagged line."
+          },
+          {
+            "file": "benchmark/datasets/scan-targets/rails/actionpack/test/controller/http_token_authentication_test.rb",
+            "line": 145,
+            "rule": "generic-api-key",
+            "class": "dummy_fixture",
+            "note": "Base64 test token 'rcHu+HzSFw89Ypyhn/896A==' used to exercise HTTP Token auth parsing; the same value accounts for all 4 findings in this file."
+          },
+          {
+            "file": "benchmark/datasets/scan-targets/rails/actionpack/test/controller/http_basic_authentication_test.rb",
+            "line": 121,
+            "rule": "generic-api-key",
+            "class": "dummy_fixture",
+            "note": "Keyboard-mash password 'kjfhueyt9485...' in a test asserting encode_credentials emits no newline; clearly deliberate test input."
+          },
+          {
+            "file": "benchmark/datasets/scan-targets/rails/actionpack/test/controller/http_digest_authentication_test.rb",
+            "line": 45,
+            "rule": "generic-api-key",
+            "class": "dummy_fixture",
+            "note": "@secret = '4fb45da9e4ab4ddeb7580d6a35503d99' \u2014 32-hex nonce-generation secret for digest-auth tests, comment above explicitly says it's for the test key generator."
+          },
+          {
+            "file": "benchmark/datasets/scan-targets/rails/activestorage/test/dummy/config/secrets.yml",
+            "line": 21,
+            "rule": "generic-api-key",
+            "class": "dummy_fixture",
+            "note": "Real-format 128-hex secret_key_base for the ActiveStorage dummy test app (line 24 is the test-env twin). Path contains 'test/dummy' \u2014 defensible signal but intentional."
+          },
+          {
+            "file": "benchmark/datasets/scan-targets/rails/activestorage/test/dummy/config/secrets.yml",
+            "line": 16,
+            "rule": "generic-api-key",
+            "class": "placeholder_example",
+            "note": "Commented-out sample '#   api_key: a1B2c3D4e5F6' in the boilerplate secrets.yml header \u2014 obvious documentation placeholder, and it is inside a comment."
+          },
+          {
+            "file": "benchmark/datasets/scan-targets/rails/guides/source/active_record_encryption.md",
+            "line": 55,
+            "rule": "generic-api-key",
+            "class": "placeholder_example",
+            "note": "Sample output of `bin/rails db:encryption:init` in the guide (primary_key/deterministic_key example values); lines 56 and 817 are the same pattern."
+          },
+          {
+            "file": "benchmark/datasets/scan-targets/rails/guides/source/command_line.md",
+            "line": 1408,
+            "rule": "generic-api-key",
+            "class": "placeholder_example",
+            "note": "Example `credentials:show` output in the CLI guide including a sample secret_key_base; 3 findings from one fenced doc code block."
+          },
+          {
+            "file": "benchmark/datasets/scan-targets/rails/guides/source/debugging_rails_applications.md",
+            "line": 183,
+            "rule": "generic-api-key",
+            "class": "noise",
+            "note": "CSRF 'authenticity_token' inside an example request-log dump in the debugging guide \u2014 an ephemeral per-request token, not a credential at all. The only pure-noise hit in the set."
+          },
+          {
+            "file": "benchmark/datasets/scan-targets/flask/docs/config.rst",
+            "line": 41,
+            "rule": "generic-api-key",
+            "class": "placeholder_example",
+            "note": "The canonical Flask docs SECRET_KEY example '192b9bdd22ab...' \u2014 the same literal appears again at line 513 and in docs/tutorial/deploy.rst:73, so one doc example produces 3 findings."
+          },
+          {
+            "file": "benchmark/datasets/scan-targets/flask/docs/config.rst",
+            "line": 560,
+            "rule": "generic-api-key",
+            "class": "placeholder_example",
+            "note": "FLASK_SECRET_KEY='5f352379324c22463451387a0aec5d2f' export example flagged once per shell-syntax tab (lines 560, 578, 587 for bash/cmd/powershell) \u2014 the identical placeholder counted three times."
+          }
+        ],
+        "narrative": "On these clean corpora gitleaks' generic-api-key rule produced zero plausibly-live secrets: 58% of hits are intentional credential-shaped test fixtures (defensible signal for a secret scanner) and 39% are documentation example keys, with only one pure-noise hit (a CSRF token in a docs log excerpt). The dominant failure mode is duplication rather than misclassification \u2014 a single Mailgun webhook token fixture accounts for 11 of 27 rails findings, one base64 token accounts for 4 more, and Flask's two docs example keys account for all 6 flask findings across repeated code blocks. Path-aware suppression (test/, guides/, docs/) plus per-value dedup would eliminate essentially the entire false-positive load without losing real detection capability."
+      },
+      "verification": {
+        "agree": true,
+        "corrections": [
+          "Mailgun notable: the 'forged' variant token (Zx8mJBiGmiiyyfWnho3zKyjCg2pxLARoCuBM7X9AKCioShGiMX) is at line 137, not line 151. Line 151 contains the ordinary 7VwW... token. The '10 of 11 verbatim' count is otherwise correct (10 lines have 7VwW..., line 137 has the variant).",
+          "http_token_authentication_test.rb notable: 'the same value accounts for all 4 findings' is imprecise \u2014 line 145 is 'rcHu+HzSFw89Ypyhn/896A==' (double padding) while lines 180/214/226 are 'rcHu+HzSFw89Ypyhn/896A=' (single padding); two deliberate padding variants, not one identical literal. Classification (dummy_fixture) unaffected.",
+          "active_record_encryption.md notable: the flagged line 55 is the deterministic_key line and line 56 is key_derivation_salt; primary_key sits on unflagged line 54. The note's '(primary_key/deterministic_key example values)' loosely describes the block rather than the flagged lines. Classification unaffected.",
+          "Narrative: 'a single Mailgun webhook token fixture accounts for 11 of 27 rails findings' slightly overstates \u2014 one FILE accounts for 11 findings, but the single 7VwW... value accounts for 10 (the 11th is the forged-variant line), consistent with the notable's own 10-of-11 phrasing.",
+          "http_digest notable (nitpick): the comment above line 45 says the secret is 'Used as secret in generating nonce to prevent tampering of timestamp'; the key-generator usage is the adjacent code (lines 46-47), not what the comment says. Substance of the classification is correct."
+        ],
+        "notes": "Adversarial verification PASSED with minor corrections. (1) Counts: accuracy.json under 'gitleaks' shows rails=27 and flask=6 findings (all generic-api-key), total 33 = auditor's total_reviewed; class counts 19+13+1+0=33 sum correctly, and reconstructing per-file assignments from the notables (mailgun 11 + http_basic 1 + http_digest 1 + http_token 4 + secrets.yml lines 21/24 = 19 dummy_fixture; secrets.yml line 16 + active_record_encryption.md x3 + command_line.md x3 + flask x6 = 13 placeholder_example; debugging guide line 183 = 1 noise) exactly reproduces the summary. The 58%/39% narrative percentages match (19/33, 13/33). The audit correctly excludes the separate 'leaky' corpus (22 gitleaks findings) per its stated rails/flask scope. (2) Classifications: I read every flagged line across all 12 files (33/33 findings spot-checked, exceeding the 8 minimum) \u2014 mailgun token fixtures at lines 21/39/57/76/91/105/116/137/151/166/180; rcHu+... token at 145/180/214/226; keyboard-mash password at http_basic 121; 32-hex @secret at http_digest 45 with explanatory comment; secrets.yml commented api_key placeholder (16) and 128-hex dev/test secret_key_base twins (21/24, lengths verified = 128); guide example blocks at active_record_encryption.md 55/56/817 and command_line.md 1404/1405/1408 (one fenced credentials:show block); authenticity_token in an example log dump at debugging guide 183 (noise is the right call \u2014 ephemeral CSRF token); flask 192b9bdd... literal at config.rst 41/513 + deploy.rst 73 and 5f352379... at config.rst 560/578/587 (bash/cmd/powershell tabs; the Fish tab at 569 with the same value was not flagged, consistent with gitleaks needing an '=' assignment). I actively tried to break each classification and found none wrong. (3) No missed possibly_real: every value is a committed fixture or doc example in public OSS trees; line 8's MAILGUN_INGRESS_SIGNING_KEY fixture was indeed not among the flagged lines. The errors I did find (wrong line number for the forged variant, padding-variant nuance, primary_key/deterministic_key line attribution) are note-level factual slips that do not change any class, any count, or the possibly_real=0 conclusion, so I do not consider them material. Key files: benchmark/results/accuracy.json; benchmark/datasets/scan-targets/rails/actionmailbox/test/controllers/ingresses/mailgun/inbound_emails_controller_test.rb; .../rails/actionpack/test/controller/{http_token,http_basic,http_digest}_authentication_test.rb; .../rails/activestorage/test/dummy/config/secrets.yml; .../rails/guides/source/{active_record_encryption,command_line,debugging_rails_applications}.md; .../flask/docs/config.rst; .../flask/docs/tutorial/deploy.rst."
+      }
+    },
+    {
+      "tool": "trufflehog",
+      "audit": {
+        "tool": "trufflehog",
+        "summary": {
+          "dummy_fixture": 1,
+          "placeholder_example": 7,
+          "noise": 1,
+          "possibly_real": 0,
+          "total_reviewed": 9
+        },
+        "notable": [
+          {
+            "file": "actionmailbox/test/controllers/ingresses/mandrill/inbound_emails_controller_test.rb",
+            "line": 8,
+            "rule": "Mandrill",
+            "class": "dummy_fixture",
+            "note": "ENV[\"MANDRILL_INGRESS_API_KEY\"] = \"1l9Qf7lutEf7h73VXfBwhw\" \u2014 a real-format 22-char Mandrill key intentionally committed to exercise webhook signature verification; saved/restored around the test. Defensible signal for a secret scanner."
+          },
+          {
+            "file": "actionmailbox/app/controllers/action_mailbox/ingresses/postmark/inbound_emails_controller.rb",
+            "line": 43,
+            "rule": "URI",
+            "class": "placeholder_example",
+            "note": "RDoc comment showing https://actionmailbox:PASSWORD@example.com/... \u2014 literal PASSWORD token at example.com; pure documentation. Same boilerplate flagged in the SendGrid controller comment (line 43)."
+          },
+          {
+            "file": "guides/source/action_mailbox_basics.md",
+            "line": 241,
+            "rule": "URI",
+            "class": "placeholder_example",
+            "note": "Same https://actionmailbox:PASSWORD@example.com URL in the guides; flagged TWICE at the identical file:line, so trufflehog double-counts one match. Both counted as placeholder_example."
+          },
+          {
+            "file": "actionpack/test/controller/url_for_test.rb",
+            "line": 243,
+            "rule": "URI",
+            "class": "placeholder_example",
+            "note": "assert_equal \"http://david:secret@www.basecamphq.com/c/a/i\" \u2014 url_for test constructing userinfo URLs with password: \"secret\". Line 251 is the same pattern testing escape codes (password \"one two?\")."
+          },
+          {
+            "file": "actionpack/test/dispatch/request_test.rb",
+            "line": 60,
+            "rule": "URI",
+            "class": "placeholder_example",
+            "note": "url_for(user: \"dhh\", password: \"supersecret\") producing http://dhh:supersecret@www.example.com in a URL-generation assertion."
+          },
+          {
+            "file": "activerecord/test/cases/connection_adapters/merge_and_resolve_default_url_config_test.rb",
+            "line": 139,
+            "rule": "JDBC",
+            "class": "noise",
+            "note": "\"jdbc:postgres://localhost/foo\" \u2014 a JDBC connection string with no username or password at all; flagged purely on the jdbc: scheme. Pure noise."
+          }
+        ],
+        "narrative": "Trufflehog's false positives on rails are dominated by its URI detector (7 of 9), which fires on any URL with userinfo \u2014 all of them documentation placeholders (actionmailbox:PASSWORD@example.com, repeated verbatim in two controller comments and the guides, including a double-count at the same file:line) or url_for tests with passwords like \"secret\" and \"supersecret\". Its one genuinely defensible hit is a real-format dummy Mandrill API key committed as a test fixture; the JDBC hit is pure noise since the flagged connection string contains no credentials whatsoever. Flask produced zero findings. Overall profile: low volume, but the URI rule contributes almost nothing but doc/test placeholder churn."
+      },
+      "verification": {
+        "agree": true,
+        "corrections": [],
+        "notes": "Verified all 9 trufflehog findings against the actual files and raw output (benchmark/results/raw/trufflehog-rails.out). Counts sum correctly (1+7+1+0=9) and match accuracy.json rails total_findings=9 / flask=0; by_rule (URI:7, Mandrill:1, JDBC:1) is consistent with the class assignments. Every quoted line is accurate: Mandrill ENV key at test line 8 (22 chars, saved/restored around test), PASSWORD@example.com RDoc placeholders at line 43 of both postmark and sendgrid controllers, david:secret and one+two%3F userinfo URLs at url_for_test.rb:243/251, dhh:supersecret at request_test.rb:60, credential-free jdbc:postgres://localhost/foo at line 139, and the guides.md:241 finding duplicated verbatim at the same file:line in both accuracy.json and raw output (double-count claim confirmed). No missed possibly_real: the Mandrill key is the only candidate, trufflehog reports Verified:False, and it is the well-known public Rails fixture value. Only non-material quibbles: JDBC \"noise\" vs \"placeholder_example\" is a judgment call, and request_test.rb is a dispatch test file (though it does test url_for). No material errors found."
+      }
+    },
+    {
+      "tool": "detect-secrets",
+      "audit": {
+        "tool": "detect-secrets",
+        "summary": {
+          "total_reviewed": 73,
+          "dummy_fixture": 9,
+          "placeholder_example": 48,
+          "noise": 16,
+          "possibly_real": 0
+        },
+        "notable": [
+          {
+            "file": "rails/actionmailbox/test/controllers/ingresses/mandrill/inbound_emails_controller_test.rb",
+            "line": 8,
+            "rule": "Secret Keyword",
+            "class": "dummy_fixture",
+            "note": "Real-format Mandrill ingress API key '1l9Qf7lutEf7h73VXfBwhw' set via ENV in test setup \u2014 defensible signal."
+          },
+          {
+            "file": "rails/actionmailbox/test/controllers/ingresses/mailgun/inbound_emails_controller_test.rb",
+            "line": 8,
+            "rule": "Base64 High Entropy String",
+            "class": "dummy_fixture",
+            "note": "50-char Mailgun signing key 'tbsy84uSV1Kt...' reused as RAILS_INBOUND_EMAIL_PASSWORD in actionmailbox/test/test_helper.rb:32 \u2014 same fixture counted multiple times."
+          },
+          {
+            "file": "rails/actionpack/test/dispatch/cookies_test.rb",
+            "line": 1101,
+            "rule": "Hex High Entropy String",
+            "class": "dummy_fixture",
+            "note": "Legacy secret_key_base 'c3b95688f...' needed for deterministic cookie-upgrade test; the SAME line is also counted under Secret Keyword (double-counting inflates totals)."
+          },
+          {
+            "file": "rails/railties/test/credentials_helpers.rb",
+            "line": 13,
+            "rule": "Base64 High Entropy String",
+            "class": "dummy_fixture",
+            "note": "Encrypted credentials.yml.enc blob written as a test fixture ('# mystery: revealed' comment right above)."
+          },
+          {
+            "file": "rails/activesupport/test/key_generator_test.rb",
+            "line": 39,
+            "rule": "Hex High Entropy String",
+            "class": "dummy_fixture",
+            "note": "128-hex KDF regression test vector derived from secret '0'*64 \u2014 crypto test vector, not exploitable."
+          },
+          {
+            "file": "rails/actionview/test/template/form_helper_test.rb",
+            "line": 794,
+            "rule": "Secret Keyword",
+            "class": "noise",
+            "note": "Flags `@post.secret = \"off\"` \u2014 a checkbox value; 'secret' is just an attribute name."
+          },
+          {
+            "file": "rails/railties/test/generators/devcontainer_generator_test.rb",
+            "line": 112,
+            "rule": "Secret Keyword",
+            "class": "noise",
+            "note": "Flags the string \"true\" in MARIADB_ALLOW_EMPTY_ROOT_PASSWORD => \"true\" \u2014 a boolean flag, pure keyword-trigger noise."
+          },
+          {
+            "file": "rails/guides/source/sign_up_and_settings.md",
+            "line": 423,
+            "rule": "Secret Keyword",
+            "class": "noise",
+            "note": "i18n locale label `password_challenge: \"Current password\"` \u2014 a UI string, not a credential."
+          },
+          {
+            "file": "rails/actiontext/app/assets/javascripts/actiontext.esm.js",
+            "line": 229,
+            "rule": "Hex High Entropy String",
+            "class": "noise",
+            "note": "MD5(\"hello\") = 5d41402abc... self-test constant in vendored spark-md5; duplicated in activestorage.esm.js:231."
+          },
+          {
+            "file": "flask/.pre-commit-config.yaml",
+            "line": 3,
+            "rule": "Hex High Entropy String",
+            "class": "noise",
+            "note": "Pinned git commit SHAs for pre-commit hooks; 4 of the 23 flask findings (17%) are these rev pins."
+          },
+          {
+            "file": "flask/docs/config.rst",
+            "line": 41,
+            "rule": "Hex High Entropy String",
+            "class": "placeholder_example",
+            "note": "Docs example SECRET_KEY '192b9bdd...' (sample secrets.token_hex() output) double-counted by Hex + Secret Keyword rules and repeated in quickstart.rst, deploy.rst \u2014 one docs string yields 6+ findings."
+          },
+          {
+            "file": "rails/guides/source/active_model_basics.md",
+            "line": 1107,
+            "rule": "Secret Keyword",
+            "class": "placeholder_example",
+            "note": "irb docs example `person.password = \"aditya\"` \u2014 representative of the ~2/3 of findings that are docs/test placeholder passwords."
+          }
+        ],
+        "narrative": "detect-secrets produced zero plausibly-live secrets across both corpora; roughly two-thirds of findings (48/73) are obvious placeholders \u2014 docs examples like password: 'secret'/SECRET_KEY='dev', test passwords, and foo:bar basic-auth URLs \u2014 dominated by the Secret Keyword rule firing on any assignment containing 'secret' or 'password'. About 12% (9/73) are deliberate real-format test fixtures (Mandrill/Mailgun keys, legacy secret_key_base values, crypto test vectors), which is defensible signal for a security tool. The remaining ~22% (16/73) is pure noise: git commit SHAs, MD5 self-test constants in vendored JS, i18n labels, session-ID fixtures, and even boolean values like \"true\"/\"off\" flagged as passwords. Double-counting is systemic \u2014 the same line or the same repeated docs string is flagged by both the keyword and entropy rules, inflating raw counts (e.g., flask docs/config.rst:41 and rails cookies_test.rb:1101 each appear twice)."
+      },
+      "verification": {
+        "agree": false,
+        "corrections": [
+          "total_reviewed=73 does not match the reviewed scope in accuracy.json: rails (224) + flask (23) = 247 findings. No dedup basis reconciles either: unique (file,line) = 232, unique files = 144, unique hashed secrets from raw/detect-secrets-*.out = 148 (13 flask + 137 rails, 2 shared). The audit accounts for <30% of findings while presenting itself as complete; the narrative fractions (48/73 'two-thirds of findings', '~22% noise', '12% dummy fixtures') are therefore not valid corpus-level statistics and the summary counts should be restated against 247 (or an explicitly declared dedup/sample basis).",
+          "The flask/docs/config.rst:41 note claims 'one docs string yields 6+ findings'; the actual count for the 192b9bdd... string (hash 245e8ce2...) is exactly 5: config.rst:41 (Hex + Secret Keyword), quickstart.rst:771 (Hex), tutorial/deploy.rst:65 (Hex), tutorial/deploy.rst:73 (Secret Keyword). Should read '5 findings'.",
+          "Minor completeness: the MD5(\"hello\") self-test constant appears in 4 vendored files, not 2 \u2014 actiontext.esm.js:229, actiontext.js:233, activestorage.esm.js:231, activestorage.js:234 (all flagged in accuracy.json)."
+        ],
+        "notes": "Adversarial spot-check of 12 notable entries (exceeds the 8 required): all 12 (file, line, rule) tuples exist in benchmark/results/accuracy.json under detect-secrets, and every quoted secret/string matches the actual file content at benchmark/datasets/scan-targets (verified by reading each flagged line plus cross-references: Mailgun key reuse at actionmailbox/test/test_helper.rb:32, MD5 constant duplicate at activestorage.esm.js:231, '# mystery: revealed' comment at credentials_helpers.rb:11). Both double-counting claims confirmed (cookies_test.rb:1101 and config.rst:41 each flagged by Hex + Secret Keyword on the same line), and the '4 of 23 flask rev pins' claim is exact (.pre-commit-config.yaml lines 3/8/12/17). Class labels on all spot-checked items are defensible; I actively looked for a mislabel and found none. On missed possibly_real: I extracted the line content of ALL 247 findings (dump at /tmp/ds_all_findings.txt) and found nothing plausibly live \u2014 everything is docs examples, test fixtures/vectors, generator templates, authenticity-token samples, git SHAs, or vendored crypto constants \u2014 so possibly_real=0 stands. Verdict: the qualitative narrative and classifications are sound, but agree=false because the headline accounting is materially wrong: the summary covers 73 of 247 in-scope findings with no reconcilable dedup basis (232 unique lines, 148 unique secrets, 144 unique files), which invalidates the reported class proportions until restated against the full finding set."
+      }
+    },
+    {
+      "tool": "ripsecrets",
+      "audit": {
+        "tool": "ripsecrets",
+        "summary": {
+          "total_reviewed": 61,
+          "dummy_fixture": 33,
+          "placeholder_example": 21,
+          "noise": 7,
+          "possibly_real": 0
+        },
+        "notable": [
+          {
+            "file": "benchmark/datasets/scan-targets/rails/actionmailbox/test/controllers/ingresses/mandrill/inbound_emails_controller_test.rb",
+            "line": 8,
+            "rule": "ripsecrets",
+            "class": "dummy_fixture",
+            "note": "Real-format Mandrill API key '1l9Qf7lutEf7h73VXfBwhw' set via ENV in test setup; long-public Rails test fixture, most credential-looking hit in the corpus."
+          },
+          {
+            "file": "benchmark/datasets/scan-targets/rails/actionmailbox/test/controllers/ingresses/mailgun/inbound_emails_controller_test.rb",
+            "line": 8,
+            "rule": "ripsecrets",
+            "class": "dummy_fixture",
+            "note": "Mailgun-format signing key fixture; this one test file accounts for 12 of 55 rails hits (same key plus repeated token/HMAC-signature pairs)."
+          },
+          {
+            "file": "benchmark/datasets/scan-targets/rails/actionpack/test/dispatch/cookies_test.rb",
+            "line": 379,
+            "rule": "ripsecrets",
+            "class": "dummy_fixture",
+            "note": "Canonical Rails test secret 'b3c631c314c0bbca50c1b2843150fe33'; the identical string is re-flagged in ~11 findings across cookies, session, and railties tests."
+          },
+          {
+            "file": "benchmark/datasets/scan-targets/rails/actionpack/test/controller/http_token_authentication_test.rb",
+            "line": 145,
+            "rule": "ripsecrets",
+            "class": "dummy_fixture",
+            "note": "Arbitrary base64 bearer token 'rcHu+HzSFw89Ypyhn/896A==' used to exercise header parsing; 5 hits from minor variants of the same string."
+          },
+          {
+            "file": "benchmark/datasets/scan-targets/rails/guides/assets/images/association_basics/belongs_to.svg",
+            "line": 4,
+            "rule": "ripsecrets",
+            "class": "noise",
+            "note": "High-entropy draw.io mxfile blob embedded in an SVG content attribute; 7 identical hits across the association_basics diagram set. Pure encoded-asset noise."
+          },
+          {
+            "file": "benchmark/datasets/scan-targets/rails/guides/source/active_record_encryption.md",
+            "line": 54,
+            "rule": "ripsecrets",
+            "class": "placeholder_example",
+            "note": "Sample 'rails db:encryption:init' output keys in the guides; 6 similar doc lines across active_record_encryption.md and command_line.md."
+          },
+          {
+            "file": "benchmark/datasets/scan-targets/rails/actionmailbox/app/controllers/action_mailbox/ingresses/postmark/inbound_emails_controller.rb",
+            "line": 43,
+            "rule": "ripsecrets",
+            "class": "placeholder_example",
+            "note": "Doc-comment URL 'https://actionmailbox:PASSWORD@example.com/...'; literal PASSWORD placeholder at example.com, also flagged in the sendgrid controller and twice in guides."
+          },
+          {
+            "file": "benchmark/datasets/scan-targets/rails/guides/source/debugging_rails_applications.md",
+            "line": 183,
+            "rule": "ripsecrets",
+            "class": "placeholder_example",
+            "note": "CSRF authenticity_token inside sample log output in docs; not a credential in any meaningful sense, borderline noise."
+          },
+          {
+            "file": "benchmark/datasets/scan-targets/rails/actionpack/test/controller/url_for_test.rb",
+            "line": 251,
+            "rule": "ripsecrets",
+            "class": "placeholder_example",
+            "note": "URL-encoding test with fake basic-auth userinfo (password is literally 'one two?'); credential-shaped URL but obviously throwaway."
+          },
+          {
+            "file": "benchmark/datasets/scan-targets/flask/docs/config.rst",
+            "line": 41,
+            "rule": "ripsecrets",
+            "class": "placeholder_example",
+            "note": "The well-known Flask docs example SECRET_KEY '192b9bdd22ab...'; all 6 flask findings are this or the '5f352379...' shell-export variant in documentation code blocks."
+          }
+        ],
+        "narrative": "ripsecrets produced zero plausibly-live secrets on these corpora: 33/61 hits (54%) are real-format test fixtures (Mailgun/Mandrill keys, the ubiquitous 'b3c631c...' Rails test secret) which are defensible signal for a secret scanner, and 21 (34%) are documentation placeholders like PASSWORD@example.com and sample db:encryption:init keys. The only pure noise is 7 hits on draw.io-encoded SVG diagram assets, indicating the entropy detector should skip or downweight image/asset files. Findings are heavily duplicated \u2014 one mailgun test file yields 12 hits and a single repeated test secret string yields ~11 \u2014 so per-unique-secret deduplication would cut the review burden by more than half."
+      },
+      "verification": {
+        "agree": true,
+        "corrections": [
+          "The 'b3c631c314c0bbca50c1b2843150fe33' string is re-flagged in exactly 9 of the 55 rails findings, not '~11'. The count of 11 only holds if two different 32-hex test keys are lumped in: benchmark/datasets/scan-targets/rails/actionpack/test/dispatch/cookies_test.rb:1101 ('c3b95688f35581fad38df788add315ff') and benchmark/datasets/scan-targets/rails/railties/test/application/configuration_test.rb:1254 is a short token and :1033 is '3b7cd727ee24e8444053437c36cc66c3'. Dedup-by-unique-secret savings estimate is slightly overstated but directionally correct.",
+          "The note on active_record_encryption.md describes the hits as 'rails db:encryption:init output keys', but the finding at benchmark/datasets/scan-targets/rails/guides/source/active_record_encryption.md:817 is a key-rotation configuration example, not init output. Still correctly classed placeholder_example.",
+          "Minor taxonomy quibble: url_for_test.rb:251 is a test fixture classed as placeholder_example while all other test-file hits are dummy_fixture; either class is defensible for a throwaway URL-encoding value, and moving it would make the split 34/20/7 instead of 33/21/7."
+        ],
+        "notes": "Verified by reading all 61 flagged lines (55 rails + 6 flask) listed under ripsecrets.rails.findings and ripsecrets.flask.findings in benchmark/results/accuracy.json. (1) Counts sum correctly: 33+21+7+0=61 matches rails 55 + flask 6 for the reviewed scope; I reconstructed the exact per-file bucket assignment from the flagged lines and it reproduces 33/21/7. The audit correctly excludes the separate 'leaky' corpus (4 findings) from its rails/flask scope. (2) All 10 notable entries are factually accurate at the cited file:line: Mandrill ENV fixture, Mailgun key with 12 hits, b3c631c test secret, rcHu+ bearer token with 5 variant hits, 7 draw.io mxfile SVG blobs at line 4, db:encryption:init doc keys, PASSWORD@example.com doc comments (postmark, sendgrid, and twice in action_mailbox_basics.md), CSRF token in sample log output, 'one two?' basic-auth encoding test, and the canonical Flask docs SECRET_KEY 192b9bdd.../5f352379... covering all 6 flask hits. (3) Actively hunted for a missed possibly_real across the remaining hits (digest auth secret 4fb45da9..., forgery token cf50faa3fe97702ca1ae, form_tag_helper doc comment, 4_1_release_notes secrets.yml example, c3b95688.../3b7cd727... test key bases, RAILS_INBOUND_EMAIL_PASSWORD in test_helper.rb): all are long-public upstream rails/flask repo fixtures or documentation examples; possibly_real=0 stands. The only errors found are the '~11 identical string' imprecision (actual: 9 identical + 2 different 32-hex test keys) and the mislabeling of one key-rotation doc example as init output \u2014 neither changes any classification or the overall conclusion, so agree=true."
+      }
+    }
+  ],
+  "klarionMisses": {
+    "gaps": [
+      {
+        "category": "Verifier suppression: 'example/test/dummy' context heuristic kills real findings (8 risk files)",
+        "files": [
+          ".docker/.dockercfg",
+          ".docker/config.json",
+          "cloud/heroku.json",
+          "deployment-config.json",
+          "sftp-config.json",
+          ".vscode/sftp.json",
+          ".npmrc",
+          "misc-keys/putty-example.ppk"
+        ],
+        "why_missed": "The detector actually FOUND the risk secret in all 8 files (visible in the report's 'suppressed' array). The benchmark ran `klarion scan --no-ai`, which routes findings through the offline heuristic verifier (internal/verify/heuristic.go). Rule 3 there marks any 'generic*'-rule finding false_positive (confidence 0.75) when contextMarkers ('test', 'example', 'sample', 'dummy', ...) appear in the FILE PATH or the \u00b13-line context snippet. Leaky-repo credentials sit next to `example.com` hostnames and `*@example.com`/`dummy@example.com` emails (normal in server/deploy configs), and putty-example.ppk has 'example' in its filename, so every hit \u2014 docker `auth` base64 blobs, HEROKU_API_KEY, `\"password\": \"hunter22\"`, npm `_auth`, and all 20 PPK key-body entropy hits \u2014 was flipped to FP. FilterFalsePositives (internal/verify/apply.go, on by default with min_confidence 0.6) then silently dropped them.",
+        "suggested_fix": "Highest-leverage single change (+8 risk files, recall 0.43\u21920.62). In heuristicVerifier.classify: (1) restrict the non-prod-context FP to entropy-only 'generic-high-entropy' findings, never keyword-anchored assignment rules (generic-password-assignment / generic-secret-assignment matched an explicit `password:`/`auth:` key \u2014 a nearby example.com hostname is not evidence the VALUE is fake); (2) only honor markers found in the file path or the secret value itself, not neighboring context lines, and stop treating bare 'example.com' host/email strings as markers; (3) or lower context-only FP confidence to <0.6 so the default filter keeps them, and consider defaulting ai.filter_false_positives=false when the verifier is the offline heuristic (its own doc comment promises 'never a silent false-positive')."
+      },
+      {
+        "category": "Structured credential-file formats with no key[:=]value shape (netrc/pgpass/esmtprc/URL-userinfo/FileZilla XML) (6 risk files)",
+        "files": [
+          ".netrc",
+          "db/.pgpass",
+          ".esmtprc",
+          ".git-credentials",
+          "filezilla/filezilla.xml",
+          "filezilla/recentservers.xml"
+        ],
+        "why_missed": "Both generic rules in internal/rules/builtin.go require a `[:=]` separator after the keyword. .netrc (`machine ... login ... password pass123`) and .esmtprc (`password \"password\"`) are whitespace-separated; db/.pgpass is positional colon-separated (`host:port:db:user:password`) with no key names at all; .git-credentials is a URL userinfo credential (`https://user:pass@github.com`) and only postgres/mysql/mongodb/redis URI rules exist; FileZilla stores `<Pass>ExamplePas123</Pass>` / `<Pass encoding=\"base64\">Njll...</Pass>` as XML ELEMENTS \u2014 'pass' is not in the (password|passwd|pwd) alternation, and the base64 blob's normalized R\u00e9nyi score is 0.852, below both entropy-sweep thresholds (0.88 keyword / 0.95 no-context). Secondary kills: `pass123` is 7 chars < the {8,80} minimum, and the literal value `password` is in the rule's own allowlist.",
+        "suggested_fix": "Add filename-gated rules (rules.Rule needs a path-glob predicate \u2014 config.MatchGlob already exists and can gate rules the way IgnorePaths are matched): `.netrc|_netrc` \u2192 `(?i)\\bpassword\\s+(\\S+)`; `.pgpass` \u2192 `^[^:#\\s]+:[^:]*:[^:]*:[^:]*:(.+)$`; `.esmtprc` \u2192 `(?i)^\\s*password\\s+\"?([^\"\\s]+)`; FileZilla XML \u2192 `<Pass(?:\\s[^>]*)?>([^<]{4,})</Pass>`. Add a filename-independent url-userinfo rule `\\b[a-z][a-z0-9+.-]*://[^:/@\\s]+:([^@\\s]+)@` (excluding schemes already covered) for .git-credentials. Also add a PuTTY rule anchored on `^PuTTY-User-Key-File-\\d+:` (analogous to the PEM private-key rule) so putty-example.ppk is caught structurally. IMPORTANT: give these specific rule IDs (not 'generic-*') \u2014 heuristic verifier rules 2\u20133 only fire on generic-prefixed IDs, so specific rules bypass the example-context and sha/UUID suppressions; note .netrc/.esmtprc/.ftpconfig/filezilla.xml all contain 'example' markers and would otherwise be re-suppressed until gap #1 is fixed. Caveat: `password`/`ExamplePas123` values will still (correctly) trip value-level placeholder checks; recovering those specific GT lines requires trusting the file format over the value."
+      },
+      {
+        "category": "Language/function-call credential syntax and punctuation-rich secrets invisible to line regex + tokenizer (4 risk files)",
+        "files": [
+          "web/var/www/public_html/wp-config.php",
+          "web/django/settings.py",
+          "web/js/salesforce.js",
+          "web/var/www/public_html/config.php"
+        ],
+        "why_missed": "Four independent regex-shape failures, verified against the detector: (1) wp-config.php `define( 'DB_PASSWORD', 'admin' )` and all 8 AUTH_KEY/SALT defines separate key and value with a comma, which `[\"'\\s]*[:=]` cannot match; (2) the WP salts (and Django's SECRET_KEY value `zh!=!gq(w^_t[sBR29954x)...`) are full of spaces and punctuation, so the generic-secret capture class `[A-Za-z0-9_\\-+/=.]` stops at the first special char AND the entropy-sweep tokenizer `[A-Za-z0-9+_-]{16,}` (detector.go tokenRe) finds zero tokens \u226516 chars in any of them (verified); (3) Django's `SECRET_KEY = ` matches the alternation's 'secret' but the literal `_KEY` between keyword and `=` breaks `[\"'\\s]*[:=]` \u2014 there is no `secret[_-]?key` variant; (4) salesforce.js passes creds as positional args `conn.login('user', 'salesforcepassword', ...)` \u2014 no key name, no separator; the value also has no digits (entropy.require_digit=true) and is 18 chars < entropy min_length 20; (5) config.php `$dbpasswd = 'pass123'` DID match via 'passwd' but 'pass123' is 7 chars, below the value's {8,80} floor.",
+        "suggested_fix": "(a) Extend the generic-secret alternation with `secret[_-]?key` and allow `[a-z0-9_]{0,20}` filler between keyword and separator (the provider-contextual rules already do this). (b) Accept `,` as a separator and quoted values: keyword `[\"'\\s]*[:=,]\\s*(['\\\"])([^'\\\"]{6,})\\1` \u2014 quoted capture is the only way to see punctuation/space-rich secrets like WP salts; entropy-gate it at ~0.6 to control noise. (c) Add a high-precision WordPress rule: `define\\(\\s*['\\\"](?:DB_PASSWORD|(?:SECURE_|LOGGED_IN_|NONCE_)?AUTH_(?:KEY|SALT)|LOGGED_IN_(?:KEY|SALT)|NONCE_(?:KEY|SALT))['\\\"]\\s*,\\s*['\\\"]([^'\\\"]+)['\\\"]` with a non-generic ID. (d) Positional-arg logins (jsforce et al.) are the hardest; either a narrow `\\.login\\(\\s*['\\\"][^'\\\"]+['\\\"]\\s*,\\s*['\\\"]([^'\\\"]+)['\\\"]` rule or leave to the AI verify pass. (e) Lower the {8,80} password floor to {6,80} (pass123-class secrets) \u2014 the entropy floor still filters trivial values."
+      },
+      {
+        "category": "Detector placeholder/entropy gates rejecting real-but-encoded or theme-named secrets (3 risk files)",
+        "files": [
+          "ventrilo_srv.ini",
+          ".mozilla/firefox/logins.json",
+          ".idea/WebServers.xml"
+        ],
+        "why_missed": "All three matched a rule's regex, then died in acceptRuleMatch/isPlaceholder (detector.go): (1) ventrilo `Password=UserPassword123` passes the 0.5 entropy floor (score 0.911, verified) but isPlaceholder's SUBSTRING stopword check hits builtin stopword 'password123' (config.go builtinStopwords) \u2014 the whole value is discarded; (2) Firefox `\"encryptedPassword\": \"MDoEEPgAAAAAAAAAAAAAAAAAAAEw...\"` matched generic-password, but NSS/DER base64 legitimately starts with a 19-char run of 'A', tripping maxRepeatRun\u22655 \u2192 placeholder (verified); (3) JetBrains WebServers.xml `password=\"dff9dfdfdfda...\"` matched, but the XOR-obfuscated hex scores 0.499 \u2014 one thousandth below the 0.5 entropy floor \u2014 and its 9 distinct chars also fail the distinct<12 placeholder check (verified). These are systematic: browser password stores and IDE configs deliberately store low-entropy-looking encodings.",
+        "suggested_fix": "(1) Make the stopword check anchored for rule-based matches: reject only if the value minus a numeric suffix EQUALS a stopword (or matches `^(?:user|admin)?password\\d*$`), not substring-contains \u2014 'UserPassword123' as a whole is a plausible real password. (2) Skip repeat-run/distinct-count placeholder heuristics when the matched key name is explicitly password/encryptedPassword (pass the key context into acceptRuleMatch). (3) Add anchored format rules with no entropy floor (fixed formats, per the file's own design note): `\"encrypted(?:Username|Password)\"\\s*:\\s*\"([A-Za-z0-9+/=]{20,})\"` for Firefox logins.json, and `<fileTransfer[^>]*\\bpassword=\"([0-9a-f]{16,})\"` for .idea/WebServers.xml."
+      },
+      {
+        "category": "Key-name coverage gap: 'pass', 'passphrase', '*_PASS' not in the password alternation (2 risk files)",
+        "files": [
+          ".ftpconfig",
+          "config"
+        ],
+        "why_missed": ".ftpconfig uses `\"pass\": \"hunter22\"` and `\"passphrase\": \"swordfish\"`; the hub/IRC `config` file uses `IRC_PASS=irc_pass`. The generic-password rule's keyword prescreen AND regex alternation are exactly (password|passwd|pwd) \u2014 bare 'pass', 'passphrase' and '_PASS' never enter the rule. The values themselves would have passed: hunter22 scores 0.976 normalized entropy (verified). The entropy sweep can't save them either (hunter22/swordfish/irc_pass are all <16 chars, below tokenizer minimum).",
+        "suggested_fix": "Broaden the alternation to `(?i)(?:\\b|_)(?:pass(?:word|wd|phrase|code)?|pwd)[\"'\\s]*[:=]` \u2014 the existing 0.5 entropy floor, allowlist, and length bounds keep bare-'pass' false positives in check. Note the interplay with gap #1: .ftpconfig has `\"host\": \"example.com\"` two lines above the password, so after this fix the finding would STILL be verifier-suppressed under --no-ai until the context heuristic is repaired (or the rule gets a non-generic ID)."
+      },
+      {
+        "category": "Verifier identifier-shape heuristics: UUID and 40-hex treated as 'not a credential' (1 risk file, +1 shared)",
+        "files": [
+          "hub",
+          ".npmrc"
+        ],
+        "why_missed": "Real token formats collide with 'identifier' shapes. hub's `oauth_token: \"7f9cc25de...\"` was detected (entropy 1.00) but GitHub OAuth tokens are exactly 40 hex chars, so heuristic.go's hex40Re branch FP'd it as 'a git-sha-like 40-char hex digest' (confidence 0.7 \u2265 the 0.6 filter bar). Likewise npm legacy `_authToken=<uuid-shaped-token-redacted>` IS UUID-shaped, so uuidRe FP'd it as 'a UUID, not a credential' (.npmrc's other hit was killed by the gap-#1 context heuristic, so the file shows in both).",
+        "suggested_fix": "Shape alone must not overrule key context. In heuristicVerifier.classify, before FP-ing UUID/40-hex generic matches, check the request context/line for credential key names (token|auth|password|secret|apikey): `oauth_token:` and `_authToken=` should yield secret/uncertain. Only apply the git-sha demotion when the context mentions commit/sha/rev/ref (the detector's own skipGeneric already does exactly this correctly with gitShaContext \u2014 the verifier should mirror it instead of matching bare shape)."
+      }
+    ],
+    "narrative": "Klarion missed 24 of 42 risk-bearing files in leaky-repo (risk_file_recall 0.43). I reproduced the benchmark run exactly (`./klarion scan --no-ai -f json`, 98 findings in 20 files, matching benchmark/results/accuracy.json) and then scanned every missed file individually, inspecting both the reported findings and the JSON `suppressed` array. This split the 24 misses cleanly into two failure planes.\n\nPLANE 1 \u2014 THE VERIFIER, NOT THE DETECTOR (9 files: both .docker files, heroku.json, deployment-config.json, sftp-config.json, .vscode/sftp.json, .npmrc, putty-example.ppk, hub). The detector correctly found the risk secret in all nine; the offline heuristic verifier (internal/verify/heuristic.go \u2014 used because the benchmark passed --no-ai) marked them false_positive and apply.go's FilterFalsePositives (default on, min_confidence 0.6) silently dropped them. Two heuristics are responsible: (a) the 'test/example/docs context' rule, which matches markers like 'example' and 'dummy' against the file path AND the \u00b13-line context snippet \u2014 leaky-repo's `example.com` hostnames and `dummy@example.com` emails sit right next to real passwords, and putty-example.ppk has 'example' in its name (8 files); (b) shape heuristics that FP any UUID or 40-hex generic match \u2014 but npm legacy _authTokens ARE UUIDs and GitHub oauth_tokens ARE 40-hex (hub, plus .npmrc's second hit). Fixing the context heuristic alone recovers 8 files (recall 0.43 \u2192 0.62); with the shape fix, 9 (\u2192 0.64). This is the cheapest, highest-leverage fix and it is a prerequisite for several detector-side fixes below: .netrc, .esmtprc, .ftpconfig, filezilla.xml, config, and salesforce.js all contain 'example' markers, so new generic-rule matches there would be re-suppressed. (Alternatively: give new rules non-'generic-' IDs, since isGenericRule() gates those verifier heuristics by rule-ID prefix.)\n\nPLANE 2 \u2014 THE DETECTOR NEVER FIRED (15 files), for four distinct reasons. (1) Structured formats without key[:=]value shape (6 files): netrc/esmtprc are space-separated, .pgpass is positional, .git-credentials is a URL-userinfo credential, FileZilla uses `<Pass>` XML elements \u2014 the generic rules in internal/rules/builtin.go hard-require `[:=]` after (password|passwd|pwd), and no url-basic-auth or PPK rule exists. (2) Language syntax + punctuation secrets (4 files): PHP `define('DB_PASSWORD', 'admin')` and jsforce `conn.login(user, pass)` use commas/positional args; Django's `SECRET_KEY` breaks the regex because '_KEY' sits between the 'secret' keyword and '='; and I verified the WP salts and Django key contain ZERO tokens \u226516 chars under the tokenizer `[A-Za-z0-9+_-]{16,}` \u2014 punctuation-rich secrets are invisible to the entropy sweep by construction. (3) Placeholder/entropy gates eating real encoded secrets (3 files): 'UserPassword123' dies on the substring stopword 'password123' despite scoring 0.911; Firefox NSS base64 ('MDoEEP' + 19\u00d7'A') dies on the repeat-run\u22655 check; JetBrains XOR-hex scores 0.499, one thousandth under the 0.5 floor, and also fails the distinct-char check. (4) Key-name gaps (2 files): 'pass', 'passphrase', 'IRC_PASS' are simply not in the alternation, though their values (hunter22 = 0.976) would pass every other gate.\n\nPriority order by cost: verifier context suppression (8) > structured formats (6) > language syntax/tokenizer (4) > placeholder gates (3) > key-name gap (2) > shape heuristics (1). A realistic bundle \u2014 verifier context+shape fixes, filename-gated rules for .netrc/.pgpass/.esmtprc/FileZilla/PPK plus a url-userinfo rule, a WordPress define() rule, quoted-value capture, and the broader pass* alternation \u2014 plausibly recovers ~20 of 24 files (recall \u2192 ~0.9); the stragglers are values that genuinely look like placeholders ('password', 'ExamplePas123', 'admin'), where the benchmark's ground truth and any sane FP policy are in direct tension. Key source files: internal/verify/heuristic.go (both verifier gaps), internal/verify/apply.go (silent FP filtering), internal/rules/builtin.go (generic rule shapes), internal/detect/detector.go (tokenizer, isPlaceholder, stopword substring check), internal/config/config.go (builtinStopwords incl. 'password123'; entropy thresholds 0.88/0.95, min_length 20, require_digit)."
+  },
+  "harnessVerification": {
+    "issues": [
+      {
+        "severity": "major",
+        "description": "ripsecrets never scans hidden files or dot-directories (its default pre-commit walk via the Rust `ignore` crate skips hidden entries, and there is no CLI flag in v0.1.11 to change it). Evidence from raw outputs: zero dotfile findings across all three corpora; it flags '-----BEGIN PRIVATE KEY-----' in leaky/misc-keys/cert-key.pem but reports nothing for the identical pattern in leaky/.ssh/id_rsa, and misses the .npmrc npm token that gitleaks/trufflehog/klarion catch. 21 of 44 ground-truth files (~48%), including most risk files, are dotfiles or live under dot-directories, so they were never even read by ripsecrets.",
+        "impact": "ripsecrets' published leaky scores (file_coverage_pct 9.09, risk_file_recall 0.0952, F1 0.1739) measure file-traversal policy, not detection ability, yet accuracy.json presents them head-to-head with tools that scan dotfiles. The harness docstring and results carry no disclosure. Cross-tool ranking on leaky is misleading for this one tool."
+      },
+      {
+        "severity": "minor",
+        "description": "No deduplication of trufflehog decoder duplicates, and a deviation from official benchmark.py trufflehog semantics. In raw/trufflehog-leaky.out the same secrets in .bashrc are reported twice (PLAIN + ESCAPED_UNICODE decoders): Mailchimp at lines 106 and 107, Github at 109 and 110 (actual lines are 106/109, so the ESCAPED_UNICODE duplicates are also off by one line). The harness counts every JSONL record, so total_findings=12 and capped_finds=12 include 2 duplicates (10 unique); deduped find_coverage_pct would be 5.71% not 6.86%. rails also has a duplicate (guides/source/action_mailbox_basics.md:241 URI twice; 9 vs 8 unique). Note the official benchmark.py used assignment semantics per path (finds[path] = len(stringsFound)), not accumulation, though for trufflehog v2's different output format.",
+        "impact": "Slight inflation of trufflehog's find coverage on leaky and noise count on rails; duplicate rows with inconsistent (off-by-one) line numbers in the published findings lists. File-level metrics (coverage, recall, precision) are unaffected because dedup only changes within-file counts."
+      },
+      {
+        "severity": "minor",
+        "description": "Effective scan scope differs by tool defaults, so the clean-corpus 'noise' comparison is partially a traversal-scope comparison. klarion (the project's own tool) ships default ignore_paths (internal/config/config.go Default(): *.lock, go.sum, *.svg, *.min.js, *.map, images, binaries, plus a 1 MB size cap) and scanned only 104/236 flask files and 4790/4967 rails files, while detect-secrets --all-files and gitleaks dir scan everything. Verified material effect on these corpora is small: gitleaks/detect-secrets had zero findings in klarion-skipped file types, but ripsecrets' rails noise includes 7 findings in guides/assets/images/*.svg that klarion never scanned, and flask's uv.lock (308 KB of hashes) was excluded from klarion's exposure entirely.",
+        "impact": "The bias direction favors klarion on the clean-corpus noise metric (fewer files scanned -> less noise possible). Not disclosed in the harness docstring or results. On the current corpora the numeric distortion is limited, but the 'files scanned' asymmetry (104 vs 236, 4790 vs 4967, 46 vs 49) should be reported alongside noise counts."
+      },
+      {
+        "severity": "minor",
+        "description": "Asymmetric verification treatment: trufflehog's verification is explicitly disabled (--no-verification) 'for parity', but klarion retains its offline heuristic false-positive suppression layer \u2014 the harness scores only data['findings'] and silently ignores the raw JSON's top-level 'suppressed' array (39 suppressed on leaky, 17 on flask, 628 on rails, all verdict=false_positive from the 'heuristic' verifier). This is klarion's default output, and on leaky it actually hurts klarion (all 20 candidate findings in GT risk file misc-keys/putty-example.ppk were suppressed as 'test/example/docs context', costing a risk-file detection), but on clean corpora it removes 17 (flask) and 628 (rails) would-be noise findings from klarion's ledger.",
+        "impact": "klarion's headline clean-corpus noise (1 finding on flask, 93 on rails) is post-filter output competing against other tools' raw detections; e.g. rails would show 721 candidate detections pre-suppression. Defensible as 'default tool behavior' but must be disclosed since the benchmark authors also author klarion; the harness neither reports the suppressed counts nor mentions the layer."
+      },
+      {
+        "severity": "minor",
+        "description": "Reproducibility hygiene: main() merges via existing.update(results) and accepts a tool subset in argv, so a partial rerun can leave stale sections from older runs mixed into the published accuracy.json; no run timestamps or tool versions are recorded anywhere in the results (klarion reports version 'dev, commit none'). Verified that the CURRENT file is internally consistent \u2014 all 15 sections reproduce exactly from raw outputs written in the same one-minute window, and fresh direct reruns of gitleaks 8.30.0 (22 findings, set-identical) and ripsecrets 0.1.11 (byte-identical) reproduce the stored raw outputs \u2014 so no stale data is present today.",
+        "impact": "Future partial reruns could silently publish mixed-version results with no way to detect it from the artifact. Tool versions (gitleaks 8.30.0, trufflehog 3.93.5, detect-secrets 1.5.0, ripsecrets 0.1.11, klarion dev) exist only in my audit, not in the published file."
+      },
+      {
+        "severity": "minor",
+        "description": "Latent path-normalization aliasing in norm() (run_benchmark.py:50-60): the dataset-name prefix is stripped by plain string match. detect-secrets runs with cwd inside the dataset, so its paths are already dataset-relative; if a scanned repo ever contains a legitimate top-level directory named exactly like the dataset (e.g. a 'flask/' dir at the flask repo root), those paths would be wrongly truncated and merged with other files. Empirically harmless on current corpora: I verified dotfile handling is correct (leaky/.npmrc -> .npmrc; the './'-stripping while-loop cannot mangle names like .git-credentials since they don't start with './'), out_of_gt_files_flagged is empty for every tool, and every normalized flagged path matched a GT path exactly.",
+        "impact": "No effect on published numbers today; a silent file-attribution bug if datasets/repos with colliding top-level names are added later. Also ripsecrets' line regex ^(.+?):(\\d+): would misparse filenames containing ':<digits>:' (none present)."
+      }
+    ],
+    "notes": "Recomputation: I re-parsed every raw artifact myself (klarion/gitleaks JSON, trufflehog JSONL, detect-secrets baseline JSON, ripsecrets text) and re-implemented scoring from secrets.csv, then deep-diffed the full recomputed structures (every field including per_file arrays, by_rule, findings lists; excluding wall_seconds) against accuracy.json: 0 diffs across all 5 tools x 3 datasets. Spot values: klarion leaky 98 findings/20 files covered/45.45%/recall 0.4286; gitleaks 22/13/29.55%/0.3095; detect-secrets 46/24/54.55%/0.5476 \u2014 all exact. Ground-truth parsing matches official benchmark.py semantics exactly: 44 GT files, 42 risk files, total_expected=175 (risk+informative), capped finds min(found,expected), FP=overage only, files_covered = found!=0, identical rounding. Line handling: harness introduces no off-by-one; spot-checked klarion (.bash_profile:23), gitleaks (.npmrc:9), trufflehog PLAIN (.bashrc:106) against file contents \u2014 all 1-based correct; the only line anomaly is trufflehog's ESCAPED_UNICODE decoder artifact (issue 2). Clean-corpus apples-to-apples at tree level confirmed: no .git or .leaky-meta anywhere under scan-targets (find), all tools pointed at identical trees; leaky tree = 44 GT files + 5 benign extras (README.md, LICENSE, .gitattributes, cert9.db, key4.db) that no tool flagged. No detector-disabling flags: --no-ai/--no-verification only disable network verification; detect-secrets 1.5.0 ran its full default plugin set with --all-files (required since .git removed); gitleaks dir mode used default embedded config; exit codes handled correctly. Raw outputs are authentic: fresh direct reruns of gitleaks and ripsecrets on leaky reproduce the stored raw outputs exactly. Deliberate deviation from official methodology worth knowing: the official benchmark.py scans a git repo (gitleaks --repo-path with history; trufflehog v2 git mode), while this harness scans a flattened working tree with dir/filesystem modes \u2014 applied equally to all tools and scoring semantics preserved, so I did not count it as an error. recomputed_ok=true because my independent numbers match accuracy.json exactly; the issues listed are fairness/disclosure/latent-robustness findings, not arithmetic ones \u2014 the most consequential being ripsecrets' hidden-file skipping (issue 1) and the klarion scope/suppression disclosure gaps (issues 3-4). Key paths: harness benchmark/harness/run_benchmark.py (norm() lines 50-60, score_leaky lines 172-226, update-merge lines 269-272); klarion defaults internal/config/config.go (Default(), ignore_paths, 1MB cap); evidence files under benchmark/results/raw/.",
+    "recomputed_ok": true
+  },
+  "features": [
+    {
+      "tool": "Klarion (\u0915\u0935\u091a, Sanskrit \"armor\") \u2014 AI-native secret scanner, module github.com/0x1Adi/Klarion",
+      "version": "dev (2026-07) \u2014 version var defaults to \"dev\" in cmd/klarion/root.go; claude-plugin/plugin.json and CHANGELOG describe an unreleased 0.1.0",
+      "language": "Go 1.25 (go.mod); dependencies limited to spf13/cobra v1.10.2 and BurntSushi/toml v1.6.0 plus stdlib; ships as a single static binary",
+      "approach": "Two-stage pipeline: Stage 1 is fast deterministic detection (83 keyword-gated regex rules with length/allowlist/entropy guards, plus a generic normalized Renyi-entropy sweep \u2014 order alpha=2 collision entropy normalized by closed-form ExpectedCollision(n,k), thresholds 0.88 with keyword context / 0.95 without, score clamped to [0,1.25]); Stage 2 sends each candidate with surrounding code context to an AI verifier that returns secret / false_positive / uncertain verdicts with confidence.",
+      "verification": "Does NOT verify secrets are live \u2014 live-credential verification (trufflehog-style) is explicitly a roadmap item in DESIGN.md section 13. Instead, \"verification\" means AI adjudication (internal/verify): a tiny Verifier interface with three implementations \u2014 anthropic.go (Anthropic Messages with strict JSON-schema structured outputs, default model claude-haiku-4-5), openai.go (raw-HTTP OpenAI-compatible client that also serves Ollama/vLLM/LiteLLM via base_url; Ollama needs no key), and heuristic.go (offline, no-network fallback scoring structure/placeholder/known-prefix/non-prod-context signals). Candidates are batched (ai.max_batch default 8), verdicts cached by fingerprint+verifier+model (cache.go, never stores the raw secret), on_error=\"keep\" leaves candidates unverified and still failing (fail closed), and uncertain is always treated as a secret. ai.mode auto/on/off controls provider selection. Note: the repo's own benchmark (benchmark/harness/run_benchmark.py) ran `klarion scan --no-ai -f json`, i.e. heuristic-only offline mode, \"for parity\" with other tools \u2014 accuracy.json reflects Stage 1 + heuristic, not LLM adjudication.",
+      "git_history": "Yes, via `klarion git` (cmd/klarion/git.go, internal/git): default scans the staged index (`git diff --cached`, parsing unified diffs into added-line sets so only + lines are scanned); `--history` walks past commits with `git log -p -U0`, limitable by `--max-commits N` and `--since <date/ref>`. Shells out to the git binary rather than a git library. Discrepancy: README/DESIGN document this flag as `git --all`, but the code implements `--history`.",
+      "precommit": "Yes: `klarion protect [dir]` (cmd/klarion/protect.go) writes a pre-commit hook into .git/hooks that runs `klarion git`; refuses to overwrite an existing hook unless `--force`; bypass via deleting the file or `git commit --no-verify`. Separately, `klarion hook --event pre-tool-use [--bash]` is a Claude Code PreToolUse adapter (reads tool-call JSON on stdin, emits permissionDecision allow/deny/ask with a redacted reason; [hook] block_on sets minimum blocking severity; fail_open=true by default so internal errors never block the agent).",
+      "baseline": "Multiple layers (all verified in code): (1) baseline snapshot \u2014 `klarion baseline create` writes .klarion-baseline.json as a fingerprint map (internal/baseline Filter suppresses findings whose sha256-based fingerprint is baselined); (2) [allowlist] config \u2014 path globs, secret regexes, exact fingerprints, and stopword substrings; (3) inline markers \u2014 lines containing `klarion:allow` or `gitleaks:allow` are skipped (internal/detect/detector.go:338); (4) AI verdict filtering \u2014 false_positive verdicts with confidence >= min_confidence (default 0.6) are demoted to a suppressed list; (5) entropy pre-filters \u2014 UUIDs, git SHAs, content digests, placeholders, require_digit; (6) per-rule allowlist regexes. Fingerprint = sha256(ruleID || path || sha256(secret))[:32], stable across line drift.",
+      "output_formats": "text (default), json, sarif, junit, gitlab \u2014 verified in internal/report/report.go New() switch and one file per format (text.go, json.go, sarif.go, junit.go, gitlab.go). Selected via `--format/-f` or [report] format. Secrets redacted by default (raw fields are json:\"-\"; fixed-width mask); `--show-secrets` overrides. Exit codes: 0 clean, 1 findings, 2 operational error.",
+      "license": "MIT (LICENSE file, Copyright (c) 2026 The Klarion Authors; also declared in plugin.json and README)",
+      "maintenance": "pre-release, in active development \u2014 not public, no stars/releases; single squash commit (275149f \"feat: initial Klarion\", 2026-07-07), no tags, CHANGELOG has only an [Unreleased] 0.1.0 section; goreleaser/Homebrew tap are placeholders pending first tagged release",
+      "rule_count": "83 built-in rules \u2014 counted via `grep -c 'ID:' internal/rules/builtin.go` (83 unique rule IDs, from airtable-token to vercel-token, spanning cloud/vcs/ci/ai/payments/comms/db/infra/key categories); DESIGN.md section 12 describes the catalog as \"50+ rules\", so code exceeds the doc. Custom regex rules addable via [[rules.custom]] in .klarion.toml; `klarion rules list` shows the active set.",
+      "extras": [
+        "MCP server: `klarion mcp` speaks JSON-RPC over stdio, exposing scan_text, scan_file, verify_finding (internal/mcp/tools.go); all responses redacted",
+        "Claude Code plugin (claude-plugin/): plugin.json v0.1.0 wiring hooks.json (PreToolUse on Write|Edit|MultiEdit + Bash matchers, 60s timeout) and mcp/servers.json, plus a /scan command",
+        "CI packaging: GitHub Action (action.yml), GitLab CI template (.gitlab/), Dockerfile + Dockerfile.goreleaser, .goreleaser.yaml, Makefile",
+        "Entropy engine (internal/entropy): Renyi(s, alpha), Shannon, Classify (smallest charset: digits < hex < lower/upper < alphanum < base64 < printable), ExpectedCollision, NormalizedScore; pure, dependency-free",
+        "Config: .klarion.toml discovered walking up from cwd, $KLARION_CONFIG / --config overrides, unknown keys are hard errors; tuned defaults layered",
+        "Scan controls: --fail-on severity, --no-ai, worker pool (default NumCPU), 1 MiB file-size skip, binary sniff via NUL in first 8 KiB, per-line/per-file finding caps",
+        "Privacy: send_secret toggle for redacted-only AI requests; secrets never serialized to reports/logs/MCP/hook output",
+        "Testing: 92 test functions across internal packages, hermetic (no network)",
+        "Benchmark harness (benchmark/): leaky/flask/rails datasets, accuracy.json + timing results; on the leaky dataset (heuristic-only): 45.45% file coverage, 22.29% find coverage, 0 out-of-ground-truth files flagged",
+        "Doc/code discrepancy: README's `klarion git --all` is implemented as `klarion git --history`"
+      ],
+      "sources": [
+        "README.md",
+        "DESIGN.md",
+        "CHANGELOG.md",
+        "LICENSE",
+        "go.mod",
+        "internal/rules/builtin.go",
+        "internal/report/report.go",
+        "internal/verify/apply.go",
+        "internal/verify/anthropic.go",
+        "internal/verify/openai.go",
+        "internal/verify/heuristic.go",
+        "internal/verify/cache.go",
+        "internal/entropy/entropy.go",
+        "internal/git/git.go",
+        "internal/baseline/baseline.go",
+        "internal/detect/detector.go",
+        "internal/mcp/tools.go",
+        "cmd/klarion/root.go",
+        "cmd/klarion/scan.go",
+        "cmd/klarion/git.go",
+        "cmd/klarion/hook.go",
+        "cmd/klarion/protect.go",
+        "cmd/klarion/mcp.go",
+        "claude-plugin/.claude-plugin/plugin.json",
+        "claude-plugin/hooks/hooks.json",
+        "benchmark/harness/run_benchmark.py",
+        "benchmark/results/accuracy.json"
+      ]
+    },
+    {
+      "tool": "gitleaks (gitleaks/gitleaks)",
+      "version": "Installed locally: 8.30.0 (verified via `gitleaks version`). Latest upstream release: v8.30.1, published 2026-03-21 (GitHub releases API).",
+      "language": "Go (GitHub API \"language\": Go; README; MIT-licensed Go binary)",
+      "approach": "Regex-pattern rules (with keyword prefiltering and per-rule Shannon-entropy thresholds) applied to git history, directories/files, or stdin \u2014 README tagline: \"Regex is (almost) all you need\"; three scan modes exposed as subcommands `git`, `dir`, `stdin` (local --help).",
+      "verification": "No. Gitleaks does not validate/verify candidate secrets against live provider APIs \u2014 no verification feature appears in the README or in any `--help` flag (contrast with TruffleHog, which does). Sources: README (github.com/gitleaks/gitleaks), local --help.",
+      "git_history": "Yes \u2014 `gitleaks git` scans full repository history (README: leverages `git log -p` under the hood); supports `--log-opts` to restrict commit ranges, plus `--staged` and `--pre-commit` diff-based modes, and `--platform github|gitlab` to generate finding links (local `gitleaks git --help`).",
+      "precommit": "Yes \u2014 official hook for the pre-commit framework (repo ships .pre-commit-hooks.yaml; README documents `repo: https://github.com/gitleaks/gitleaks` usage), and native flags `gitleaks git --pre-commit --staged` (\"good for pre-commit\") for hand-rolled hooks (local --help). Also available as a GitHub Action (gitleaks/gitleaks-action).",
+      "baseline": "Three documented FP-suppression mechanisms (README + local --help): (1) baseline report via `-b/--baseline-path` \u2014 findings in a prior JSON report are ignored; (2) `.gitleaksignore` file of finding fingerprints (`-i/--gitleaks-ignore-path`); (3) inline `gitleaks:allow` comments on flagged lines (overridable with `--ignore-gitleaks-allow`). Additionally, TOML config supports global and per-rule allowlists (regexes, paths, stopwords, commits) and `--enable-rule` to restrict active rules.",
+      "output_formats": "json, csv, junit, sarif, and template (custom output via Go template file, `--report-template`, implies `--report-format=template`); report written with `-r/--report-path` (use \"-\" for stdout). Source: local --help (`-f/--report-format`).",
+      "license": "MIT (GitHub API license.spdx_id = MIT; LICENSE file in repo)",
+      "maintenance": "~28,000 GitHub stars (28,042 via GitHub API, 2026-07-08). Latest release v8.30.1 on 2026-03-21. Cadence: roughly monthly during 2025 (~10 releases: 8.24.3 Apr 2025 \u2192 8.30.0 Nov 2025), with a ~4-month gap before 8.30.1 (Mar 2026); repo last pushed 2026-07-01, so actively maintained. Source: GitHub API /repos and /releases endpoints.",
+      "rule_count": "~222 built-in rules \u2014 counted `[[rules]]` entries in the default config shipped at the installed version's tag: raw.githubusercontent.com/gitleaks/gitleaks/v8.30.0/config/gitleaks.toml (grep -c '^\\[\\[rules\\]\\]' = 222).",
+      "extras": [
+        "Encoded-secret decoding: recursively decodes base64, hex, and percent-encoded content before matching, up to --max-decode-depth (default 5) \u2014 distinctive vs. plain regex scanners (README + local --help)",
+        "Nested archive scanning via --max-archive-depth (default 0 = off) \u2014 extracts and scans archives recursively (local --help)",
+        "Secret redaction in output with partial control: --redact accepts a 0-100 percentage (default 100%) (local --help)",
+        "Config layering: --config flag > GITLEAKS_CONFIG env > GITLEAKS_CONFIG_TOML env (inline file content) > (target)/.gitleaks.toml > embedded default; custom configs can `extend` the default (local --help + README)",
+        "Finding fingerprints uniquely identify leaks (commit:file:rule:line), powering .gitleaksignore and baseline workflows (README)",
+        "Official GitHub Action (gitleaks/gitleaks-action) and pre-commit framework hook (README)",
+        "--exit-code configurable (default 1 on leaks) for CI gating; --enable-rule to run a rule subset; --max-target-megabytes to skip large files (local --help)",
+        "Built-in diagnostics/profiling: --diagnostics cpu,mem,trace or http pprof server (local --help)",
+        "No live-API secret verification and no ML \u2014 purely regex + entropy + keywords by design"
+      ],
+      "sources": [
+        "local --help (`gitleaks --help`, `gitleaks git --help`, `gitleaks version` = 8.30.0)",
+        "https://github.com/gitleaks/gitleaks (README: approach, decoding, archive scanning, baseline/.gitleaksignore/gitleaks:allow, pre-commit, formats, MIT, Go)",
+        "https://api.github.com/repos/gitleaks/gitleaks (stars 28,042; license MIT; language Go; pushed_at 2026-07-01)",
+        "https://api.github.com/repos/gitleaks/gitleaks/releases (v8.30.1 2026-03-21; v8.30.0 2025-11-26; cadence)",
+        "https://raw.githubusercontent.com/gitleaks/gitleaks/v8.30.0/config/gitleaks.toml (222 [[rules]] entries)"
+      ]
+    },
+    {
+      "tool": "trufflehog (Truffle Security)",
+      "version": "Installed: 3.93.5 (local `trufflehog --version`; released 2026-02-26 per GitHub API). Latest upstream: v3.95.8 (2026-07-02).",
+      "language": "Go (~99.7% of repo per GitHub)",
+      "approach": "Keyword-anchored regex detectors (~1,000 credential-type-specific detectors) run over chunked input from many sources, with chained decoders (base64/UTF-16/escaped-unicode/HTML) and live API verification of each candidate secret to classify results as verified/unverified/unknown.",
+      "verification": "Yes \u2014 core differentiator. Each detector has programmatic verification against the service's API (e.g. AWS detector calls GetCallerIdentity); README: \"over 700 credential detectors that support active verification against their respective APIs\". Result statuses: verified / unverified / unknown (verification errored) / filtered_unverified, selectable via --results. Disable with --no-verification; custom verification endpoints via --verifier and --custom-verifiers-only; verification response caching (--no-verification-cache); private keys verified via Driftwood (checked against GitHub users / TLS certs). Sources: README FAQ + local --help.",
+      "git_history": "Yes \u2014 `trufflehog git <uri>` scans full commit history (https://, ssh://, file:// repos). Flags (local --help): --since-commit, --branch, --max-depth (commit depth), --bare (for pre-receive hooks), --exclude-globs (filters at `git log` level), --clone-path/--no-cleanup, --trust-local-git-config. Also github/gitlab org-wide scanning and github-experimental object-discovery for hidden/deleted commit data.",
+      "precommit": "Yes \u2014 official .pre-commit-hooks.yaml in repo root (id: trufflehog; entry: `trufflehog git file://. --since-commit HEAD --results=verified --fail --trust-local-git-config`). README also documents git hook usage and states \"Available as a GitHub Action and a pre-commit hook\". Source: raw.githubusercontent.com/trufflesecurity/trufflehog/main/.pre-commit-hooks.yaml.",
+      "baseline": "No baseline/audit file workflow (unlike detect-secrets). FP suppression is primarily live verification: run with --results=verified to emit only API-confirmed secrets. Other mechanisms (local --help + README): inline `trufflehog:ignore` comment on the secret's line (for sources with line numbers); -i/--include-paths and -x/--exclude-paths (files of newline-separated regexes); --exclude-globs; --include-detectors/--exclude-detectors (by protobuf name/ID/range); --filter-entropy=N (drop low-Shannon-entropy unverified results, suggested 3.0); --filter-unverified (first unverified result per chunk per detector); --detector-timeout; --fail exits 183 when results found (CI gating).",
+      "output_formats": "Colorized human-readable text (default), JSON (-j/--json), legacy pre-v3 JSON (--json-legacy; git/gitlab/github sources only), GitHub Actions annotation format (--github-actions). Source: local --help.",
+      "license": "AGPL-3.0 (GitHub API spdx_id; README notes license changed from GPL-2.0 to AGPL-3.0 with v3).",
+      "maintenance": "~27k GitHub stars (26,982 via GitHub API, 2026-07-08). Latest release v3.95.8 published 2026-07-02. Very active cadence: 45 releases in the trailing 12 months (roughly weekly patch releases); repo pushed to 2026-07-07.",
+      "rule_count": "~1,000 built-in detectors. Evidence: DetectorType protobuf enum at tag v3.93.5 (proto/detectors.proto) contains 1,006 entries (max ID 1041); on main (proto/detector_type.proto) 1,023 entries; pkg/detectors has 878 detector package directories on main (some detectors share a package via v1/v2 versions). README's marketing figure: \"classifies over 800 secret types\" and \"over 700 credential detectors that support active verification\".",
+      "sources": [
+        "local --help (trufflehog --help, trufflehog git --help, trufflehog --version; binary at /opt/homebrew/bin/trufflehog)",
+        "https://github.com/trufflesecurity/trufflehog (README)",
+        "https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/README.md",
+        "https://api.github.com/repos/trufflesecurity/trufflehog (stars, license, activity)",
+        "https://api.github.com/repos/trufflesecurity/trufflehog/releases (release list and dates, incl. /tags/v3.93.5)",
+        "https://raw.githubusercontent.com/trufflesecurity/trufflehog/v3.93.5/proto/detectors.proto and .../main/proto/detector_type.proto (DetectorType enum counts)",
+        "https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/.pre-commit-hooks.yaml",
+        "GitHub git trees API for pkg/detectors directory count"
+      ],
+      "extras": [
+        "Live verification against real service APIs is the tool's core design; default output includes verified+unverified+unknown, and --results=verified gives near-zero-FP output",
+        "`analyze` subcommand: post-detection credential analysis showing fine-grained permissions/resources an API key can access (local --help)",
+        "Decoders: PLAIN, BASE64, UTF16, ESCAPED_UNICODE, HTML (proto/detectors.proto DecoderType enum), with --max-decode-depth=5 iterative/chained decoding (e.g. base64 inside utf16)",
+        "Entropy is NOT the detection mechanism (v2's entropy scan was removed; --entropy is now a no-op compat flag per local --help); Shannon entropy is only an optional filter on unverified results (--filter-entropy)",
+        "16 scan sources beyond git: github, github-experimental (object-discovery of deleted/hidden commits), gitlab, filesystem, s3, gcs, docker, syslog, circleci, travisci, postman, elasticsearch, jenkins, huggingface, stdin, json-enumerator, plus multi-scan config-driven scanning (local --help)",
+        "Archive scanning with --archive-max-size/--archive-max-depth/--archive-timeout; binary skipping via --force-skip-binaries",
+        "Custom regex detectors with optional webhook-based verification via --config (proto/custom_detectors.proto)",
+        "Driftwood technology verifies private keys against millions of GitHub users and billions of TLS certificates (README)",
+        "CI-friendly: --fail exits with code 183 on findings; official GitHub Action and pre-commit hook; cosign-signed release checksums",
+        "Verification result caching enabled by default (--no-verification-cache to disable); --allow-verification-overlap controls cross-detector verification of similar candidates"
+      ]
+    },
+    {
+      "tool": "detect-secrets (Yelp)",
+      "version": "1.5.0 (verified locally via `detect-secrets --version`; installed at /opt/homebrew/Cellar/detect-secrets/1.5.0_9)",
+      "language": "Python (GitHub API reports language=Python, ~99% per repo page); requires Python 3.10-3.12 per v1.5.0 release notes",
+      "approach": "Plugin-based scanning combining three strategies: regex detectors for structured secrets (AWS, GitHub, Stripe, etc.), Shannon-entropy detection for random-looking strings (Base64HighEntropyString default limit 4.5, HexHighEntropyString default limit 3.0, tunable via --base64-limit/--hex-limit), and a KeywordDetector for suspicious variable names \u2014 followed by a filter layer that discards likely false positives (source: README + local `detect-secrets scan --help`).",
+      "verification": "Yes, optionally. Some detectors verify candidate secrets via live network calls; verification is on by default and controlled by `-n/--no-verify` (disable) and `--only-verified` (only flag secrets that verify) \u2014 both shown in local `detect-secrets scan --help`. In the installed 1.5.0 package, 9 plugins implement verify(): aws, slack, stripe, mailchimp, softlayer, cloudant, ibm_cloud_iam, ibm_cos_hmac, telegram_token (verified by grepping detect_secrets/plugins/ in the installed site-packages).",
+      "git_history": "Does NOT scan full git history. It scans the current state of git-tracked files (or all files with `--all-files`), and the pre-commit hook checks diffs of newly committed content. README explicitly states it \"avoids the overhead of digging through all git history, as well as the need to scan the entire repository every time\" (source: README; `--all-files` flag from local scan --help).",
+      "precommit": "Yes \u2014 ships a `detect-secrets-hook` entry point with a first-class pre-commit framework integration: repo https://github.com/Yelp/detect-secrets, rev v1.5.0, hook id `detect-secrets`, args ['--baseline', '.secrets.baseline'] (source: README pre-commit snippet; scan --help states output \"is compatible with `detect-secrets-hook --baseline`\").",
+      "baseline": "Core design: a `.secrets.baseline` JSON file snapshots known/existing secrets so only NEW secrets fail checks; `detect-secrets audit` interactively labels findings as true/false positives (plus --diff to compare baselines, --stats analytics, --report). Inline allowlisting via `# pragma: allowlist secret` comments (with `--only-allowlisted` to re-verify them). Additional suppression: --exclude-lines/--exclude-files/--exclude-secrets regexes, built-in heuristic filters (is_sequential_string, is_likely_id_string, is_potential_uuid, is_lock_file, is_swagger_file, is_templated_secret, etc. \u2014 verified in installed filters/heuristic.py), optional wordlist and ML gibberish filters, and custom filters via `-f` (sources: local scan/audit --help, README, installed package).",
+      "output_formats": "JSON only: `scan` writes a JSON baseline to stdout (optionally `--slim`); `audit --stats --json` gives machine-readable analytics; `audit --report` prints a findings report (with --only-real/--only-false). No built-in SARIF/CSV/HTML (sources: local --help outputs, README).",
+      "license": "Apache-2.0 (GitHub API spdx_id, https://github.com/Yelp/detect-secrets)",
+      "maintenance": "~4,584 GitHub stars (GitHub API, 2026-07-08). Latest release: v1.5.0, 2024-05-06 \u2014 no release in over 2 years since. Cadence is irregular: v1.1.0 Apr 2021, v1.2.0 Feb 2022, v1.3.0 Jul 2022, v1.4.0 Oct 2022, v1.5.0 May 2024. Repo still sees commits (pushed_at 2026-04-02, GitHub API); 158 open issues+PRs.",
+      "rule_count": "27 built-in plugins in v1.5.0, counted from local `detect-secrets scan --list-all-plugins` (25 regex/keyword detectors + 2 entropy detectors: e.g. AWSKeyDetector, GitHubTokenDetector, GitLabTokenDetector, OpenAIDetector, JwtTokenDetector, PrivateKeyDetector, KeywordDetector, Base64/HexHighEntropyString). The master-branch README lists 28 (one added since the 1.5.0 release).",
+      "extras": [
+        "Live verification of candidate secrets against provider APIs for 9 plugins (AWS, Slack, Stripe, Mailchimp, Cloudant, SoftLayer, IBM Cloud IAM, IBM COS HMAC, Telegram), with --only-verified to report only confirmed-live secrets",
+        "Interactive baseline audit workflow: label true/false positives, compare two baselines with --diff to tune plugin configs, and quantify plugin signal-to-noise with --stats",
+        "Tunable Shannon entropy thresholds per encoding (base64 default 4.5, hex default 3.0)",
+        "Rich false-positive filter stack: 10 built-in heuristic filters, wordlist filter, and an optional ML-based gibberish filter (detect_secrets/filters/gibberish in installed package)",
+        "Extensible without forking: custom plugins via -p and custom filters via -f accepting python module paths or file://path::function",
+        "Inline allowlist comments (# pragma: allowlist secret) plus --only-allowlisted mode to re-audit those exceptions",
+        "Ad-hoc single-string scanning with --string to show every plugin's verdict",
+        "Parallel scanning across cores (-c/--cores, defaults to all cores) and --slim baselines to minimize commit diffs",
+        "Deliberately does not scan git history \u2014 positions itself as an incremental, pre-commit 'ratchet' against new secrets rather than a historical scanner"
+      ],
+      "sources": [
+        "local: `detect-secrets --version`, `detect-secrets --help`, `detect-secrets scan --help`, `detect-secrets audit --help`, `detect-secrets scan --list-all-plugins` (v1.5.0 via Homebrew)",
+        "local: installed package inspection at /opt/homebrew/Cellar/detect-secrets/1.5.0_9/libexec/lib/python3.14/site-packages/detect_secrets (plugins with verify(), filters/heuristic.py, filters/gibberish)",
+        "https://github.com/Yelp/detect-secrets (README)",
+        "https://raw.githubusercontent.com/Yelp/detect-secrets/master/README.md",
+        "https://github.com/Yelp/detect-secrets/releases",
+        "GitHub API: https://api.github.com/repos/Yelp/detect-secrets and /releases (stars, license, release dates, pushed_at)"
+      ]
+    },
+    {
+      "tool": "ripsecrets (github.com/sirwart/ripsecrets)",
+      "version": "0.1.11 (local: `ripsecrets --version` reports \"ripsecrets 0.1.11\", installed at /opt/homebrew/bin/ripsecrets; latest GitHub release tag v0.1.11, 2025-05-27)",
+      "language": "Rust (GitHub API language field; built on ripgrep's grep/ignore/regex crates per src/lib.rs)",
+      "approach": "Compiles ~28 known-provider regex patterns plus one keyword-anchored generic detector (lines containing key/token/secret/password) into a single combined regex, then filters generic matches through a statistical randomness test (p_random) instead of Shannon entropy, scanning files in parallel via ripgrep's directory walker (src/lib.rs and src/matcher/mod.rs at tag v0.1.11).",
+      "verification": "No live verification. README design principle \"Always local operation\": it \"will never send data off of your computer\"; no network validation of candidate secrets (source: README at github.com/sirwart/ripsecrets).",
+      "git_history": "Does not scan git history. It scans files/directories on disk (default '.'); pre-commit usage scans only staged files via `git diff --cached --name-only --diff-filter=ACM` piped as arguments (README pre-commit section; local --help says \"searches files and directories recursively\"). No commit/history traversal feature exists.",
+      "precommit": "First-class: `--install-pre-commit` flag installs it as a git pre-commit hook automatically (local --help), `--strict-ignore` exists specifically for pre-commit invocation (local --help), and it ships pre-commit-framework hooks `ripsecrets` (builds via Rust) and `ripsecrets-system` (uses PATH binary) for .pre-commit-config.yaml (README).",
+      "baseline": ".secretsignore file with gitignore-style path exclusion patterns plus an optional [secrets] section that allowlists specific secret values (loaded into an ignore_secrets HashSet in src/matcher/mod.rs); detect-secrets-compatible inline comment `# pragma: allowlist secret` on the matching line; `--strict-ignore` makes explicitly-passed paths also honor .secretsignore. No audited-baseline-file workflow like detect-secrets' baseline JSON (README + src/matcher/mod.rs).",
+      "output_formats": "Plain grep-style text only: prints file, line number, and the matching line (termcolor-colored), with `--only-matching` to print just the matched secret; exits non-zero when secrets are found. No JSON/SARIF/CSV output flags (local --help; README).",
+      "license": "MIT (GitHub API license.spdx_id = MIT)",
+      "maintenance": "~909 GitHub stars (GitHub API, checked 2026-07-08). Latest release v0.1.11 published 2025-05-27; 12 releases total since v0.1 (2022-04-16); irregular cadence of roughly 1-3 releases/year (2022: 6, 2023: 2, 2024: 1, 2025: 3, per GitHub releases API); repo last pushed 2025-12-15; single primary maintainer (sirwart); 18 open issues.",
+      "rule_count": "29 built-in detectors at v0.1.11: 28 fixed patterns (URL-embedded credentials, JWT/JWE, GitHub, GitLab, Stripe, 3x Square, Azure Storage, GCP API key, 2x npm, Slack tokens, Slack webhooks, Maven master password, SendGrid, Twilio, Mailchimp, Intra42, PuTTY key file, age secret key, and 8 PEM/SSH private-key block variants) plus 1 generic random-string detector (RANDOM_STRING_REGEX). Source: manually counted the `predefined_secret_regexes()` vec in src/lib.rs fetched at git tag v0.1.11 via GitHub contents API. Extendable at runtime with `--additional-pattern` (local --help).",
+      "extras": [
+        "Randomness test instead of entropy: p_random() (src/matcher/p_random.rs) computes the probability a candidate string occurred by random chance; is_random() rejects candidates with p < 1e-5, and requires p >= 1e-4 if the string contains no digits (src/matcher/mod.rs at v0.1.11) \u2014 README describes flagging strings with >= ~1-in-10,000 chance of being random",
+        "Generic detection is keyword-anchored: random strings are only flagged when on a line matching key/token/secret/password followed by an assignment operator, 15-90 chars long (RANDOM_STRING_REGEX in src/matcher/mod.rs)",
+        "Speed as a headline feature: all patterns joined into one combined regex, parallel walker capped at min(12, num_cpus) threads via ripgrep's ignore crate; README benchmark on the Sentry repo (M1 MacBook Air): ripsecrets 0.32s vs trufflehog 31.2s (~95x) and detect-secrets 73.5s (~226x)",
+        "--additional-pattern custom regexes: if the regex contains a capture group, the captured group is itself tested for randomness before being reported (local --help)",
+        "Strictly local/offline by design \u2014 no telemetry, no network calls (README design principles)",
+        "Single static binary, no runtime dependencies; installable via Homebrew, prebuilt release binaries, cargo install from git, or Nix flake (README)",
+        "Respects .gitignore during recursive scans (uses ripgrep's ignore crate) and supports .secretsignore as a custom ignore filename (src/lib.rs)",
+        "No JSON/SARIF/baseline-audit/git-history features \u2014 deliberately narrow pre-commit-focused scope compared to trufflehog/gitleaks/detect-secrets"
+      ],
+      "sources": [
+        "local --help and --version output from /opt/homebrew/bin/ripsecrets (v0.1.11)",
+        "https://github.com/sirwart/ripsecrets (README, fetched 2026-07-08)",
+        "https://raw.githubusercontent.com/sirwart/ripsecrets/main/README.md",
+        "GitHub API repos/sirwart/ripsecrets (stars=909, license=MIT, language=Rust, pushed_at=2025-12-15)",
+        "GitHub API repos/sirwart/ripsecrets/releases (12 releases, v0.1 2022-04-16 through v0.1.11 2025-05-27)",
+        "GitHub contents API: src/lib.rs at ref v0.1.11 (predefined_secret_regexes list, 29 entries)",
+        "GitHub contents API: src/matcher/mod.rs (RANDOM_STRING_REGEX, is_random thresholds, pragma allowlist, .secretsignore secret set)"
+      ]
+    }
+  ],
+  "docsOnly": {
+    "tool": "docs-only-trio",
+    "version": "n/a (per-tool versions in extras)",
+    "language": "n/a (see extras)",
+    "approach": "n/a \u2014 docs-only profiles for three tools not benchmarked locally; see extras",
+    "verification": "n/a (see extras)",
+    "git_history": "n/a (see extras)",
+    "precommit": "n/a (see extras)",
+    "baseline": "n/a (see extras)",
+    "output_formats": "n/a (see extras)",
+    "license": "n/a (see extras)",
+    "maintenance": "n/a (see extras)",
+    "rule_count": "n/a (see extras)",
+    "extras": [
+      "GGSHIELD (GitGuardian CLI): language=Python (~96%), approach=thin client that sends scanned content to GitGuardian's SaaS detection API (via py-gitguardian); 500+ secret detector types run server-side, REQUIRES a GitGuardian account + API key (ggshield auth login or GITGUARDIAN_API_KEY env var) \u2014 free tier exists but no fully offline mode; GitGuardian states only scan metadata is stored, not secrets/files, verification=yes, GitGuardian API performs validity checks on detected secrets ('detect and validate 500+ types'); --ignore-known-secrets suppresses findings already known to the dashboard, license=CLI itself is MIT, but the detection backend is a proprietary hosted service, maintenance=very active: ~2,000 stars, 96 releases, latest v1.52.2 (Jun 17, 2026), distinctive=pre-commit/pre-push/pre-receive hook modes, full git history scan (ggshield secret scan repo / commit-range), CI integrations, output text/JSON/SARIF, .gitguardian.yaml config with ignored-matches/paths baseline, also does IaC scanning and honeytokens; newer releases add real-time scanning integrations for AI coding assistants (Cursor, Claude Code, Copilot Chat, Codex)",
+      "SEMGREP SECRETS: language=OCaml core engine (Semgrep) with Python CLI wrapper, approach=hybrid detection combining regex rules, entropy analysis, and semantic dataflow/constant-propagation analysis (tracks secrets through renames/reassignments across code) \u2014 notably deeper than pure-regex scanners, verification=yes, built-in validators make live API calls to confirm whether a credential is active (confirmed valid HTTP 200 / invalid 401 / validation error); validation runs LOCALLY in the user's environment \u2014 tokens are not sent to Semgrep servers, license=commercial/proprietary PAID add-on to the Semgrep AppSec Platform (contact-sales trial; not on the free tier); underlying Semgrep CE engine is LGPL-2.1 but the Secrets product, Pro engine, and proprietary ruleset are closed, maintenance=actively developed commercial product from Semgrep Inc., continuous SaaS release cadence, distinctive=REQUIRES Semgrep AppSec Platform account and login (semgrep login / SEMGREP_APP_TOKEN), enabled via platform Settings > Secrets and run through `semgrep ci`; findings triage, baselining, and PR/MR comments handled in the web platform; historical git scanning supported; standard Semgrep output formats (text/JSON/SARIF); supports custom rules with custom validators",
+      "GIT-SECRETS (awslabs): language=Bash/shell (~65%) plus Roff man pages and a PowerShell port, approach=purely local regex (egrep-compatible) matching via git grep against a user-registered prohibited-pattern list; --register-aws adds AWS-focused patterns (AKIA/ASIA-style access key IDs, secret access keys, account IDs, credentials from ~/.aws/credentials; Amazon Bedrock key patterns added 2025), verification=none \u2014 no liveness/validity checking, no entropy analysis, license=Apache-2.0; no account or API key required, fully offline, maintenance=largely dormant: ~13.3k stars but last tagged release 1.3.0 (Feb 10, 2019), no GitHub Releases published, only ~2 commits in 2025 (Bedrock patterns, merged Sep 2025) after a long gap \u2014 maintained on an as-needed basis, distinctive=installs three git hooks (pre-commit, commit-msg, prepare-commit-msg) to block commits at write time; --scan-history scans all revisions; false positives suppressed via 'allowed patterns' (.gitallowed file or git config); plain grep-style output filename:line:match only (no JSON/SARIF); 'secret providers' let custom executables emit dynamic prohibited patterns"
+    ],
+    "sources": [
+      "https://github.com/GitGuardian/ggshield",
+      "https://docs.semgrep.dev/semgrep-secrets/conceptual-overview",
+      "https://docs.semgrep.dev/semgrep-secrets/getting-started",
+      "https://github.com/awslabs/git-secrets",
+      "https://github.com/awslabs/git-secrets/tags",
+      "https://github.com/awslabs/git-secrets/commits/master",
+      "https://blog.gitguardian.com/get-caught-up-with-ggshield/",
+      "https://docs.gitguardian.com/ggshield-docs/reference/secret/scan/ci"
+    ]
+  }
+}
