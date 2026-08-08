@@ -52,5 +52,5 @@ body:
         - "Yes, Anthropic"
         - "Yes, OpenAI compatible"
         - "Yes, Ollama or local"
-        - "No, offline heuristic"
+        - "No — note that Klarion requires AI; entropy-only output is expected to be noisy"
         - "Not sure"

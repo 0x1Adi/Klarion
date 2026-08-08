@@ -28,7 +28,13 @@ var scanCmd = &cobra.Command{
 	Long: `Scan walks the given paths (default: current directory), runs the fast
 Rényi-entropy + rules pass, adjudicates each candidate with the AI verifier,
 and reports real leaks. Exit code 1 means secrets were found at or above the
---fail-on severity; exit 2 means an operational error.`,
+--fail-on severity; exit 2 means an operational error.
+
+Klarion requires an AI verifier. The entropy pass is a cost-reduction filter
+that narrows the candidate set so the model reads hundreds of strings instead
+of millions; it is not a detector on its own. Without a verifier the output is
+raw candidates, which includes ordinary identifiers, certificates and vendored
+code. Set an API key, or point ai.provider at a local ollama model.`,
 	Args: cobra.ArbitraryArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if !validAIMode(scanAIMode) {
@@ -107,7 +113,7 @@ func init() {
 	f := scanCmd.Flags()
 	f.StringVarP(&scanFormat, "format", "f", "", "output format: text|json|sarif|junit|gitlab")
 	f.StringVar(&scanFailOn, "fail-on", "low", "minimum severity that fails the scan (low|medium|high|critical)")
-	f.BoolVar(&scanNoAI, "no-ai", false, "disable AI verification (heuristic only); same as --ai-mode off")
+	f.BoolVar(&scanNoAI, "no-ai", false, "disable AI verification; same as --ai-mode off. Reports raw entropy candidates and is not a supported way to scan")
 	f.StringVar(&scanAIMode, "ai-mode", "", "AI verification mode: auto|on|off (default: config value, normally auto)")
 	f.BoolVar(&scanShowSec, "show-secrets", false, "show raw secrets in output (DANGEROUS)")
 	f.BoolVar(&scanShowSup, "show-suppressed", false, "also report findings the verifier suppressed, with reasons")

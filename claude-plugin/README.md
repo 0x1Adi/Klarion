@@ -20,8 +20,9 @@ go install github.com/0x1Adi/Klarion/cmd/klarion@latest
 # or: brew install 0x1Adi/tap/klarion
 ```
 
-Set an API key for AI adjudication (optional — falls back to the offline
-heuristic verifier if unset):
+Set an API key. Klarion requires a model to adjudicate candidates; without one
+the hook falls back to raw entropy output and will flag ordinary identifiers,
+certificates and vendored code:
 
 ```sh
 export ANTHROPIC_API_KEY=sk-ant-...

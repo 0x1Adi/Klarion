@@ -42,7 +42,7 @@ body:
       label: Was AI adjudication on?
       options:
         - "Yes"
-        - "No, offline heuristic"
+        - "No — note that Klarion requires AI; entropy-only output is expected to be noisy"
         - "Not sure"
     validations:
       required: true

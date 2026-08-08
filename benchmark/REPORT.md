@@ -16,9 +16,9 @@
 
 ## TL;DR
 
-- **Precision:** Klarion is the only tool with **zero findings on clean real-world corpora** (flask + rails, 54 MB, 3,700+ files). Every other tool reports 9–247 noise findings there. This held only for the AI configuration in the original run; as of the [§10 addendum](#10-addendum--structural-suppressors-for-the-no-ai-path) it also holds **with no API key**.
+- **Precision:** Klarion-AI is the only tool with **zero findings on clean real-world corpora** (flask + rails, 54 MB, 3,700+ files). Every other tool reports 9–247 noise findings there. This is a property of the **AI configuration**, which is the only supported way to run Klarion. The §10 structural suppressors also bring the no-AI path to 0 *on these two corpora*, but that result does not generalize — see [§12](#12-addendum--the-no-ai-path-does-not-generalize).
 - **Recall:** On the leaky-repo ground truth, Klarion-AI detects 43% of risk files with **perfect file precision (1.00)** — second-best recall behind detect-secrets (55%), which pays for it with 247 clean-corpus false positives.
-- **F1 (leaky, file level):** Klarion-no-AI 0.74 (after the [§10](#10-addendum--structural-suppressors-for-the-no-ai-path) fixes) > detect-secrets 0.70 > **Klarion-AI 0.60** > gitleaks 0.47 > trufflehog 0.32 > ripsecrets 0.17. Combined with the clean-corpus columns, Klarion-AI has the best precision/recall balance in the study.
+- **F1 (leaky, file level):** Klarion-no-AI 0.74 (after the [§10](#10-addendum--structural-suppressors-for-the-no-ai-path) fixes) > detect-secrets 0.70 > **Klarion-AI 0.60** > gitleaks 0.47 > trufflehog 0.32 > ripsecrets 0.17. The no-AI row is **measured on corpora that its own suppressors were tuned against** and is reported for diagnostic honesty, not as a recommendation; [§12](#12-addendum--the-no-ai-path-does-not-generalize) shows it collapsing on unseen repositories. Among shippable configurations, Klarion-AI has the best precision/recall balance in the study.
 - **Speed:** Klarion's scan stage is the fastest of all five tools (12.9 ms on leaky-repo, 0.61 s on rails — 2–4.6× faster than the runner-up). AI adjudication adds minutes when routed through `claude -p` (CLI startup dominates); with a real API key and parallel batches this is seconds.
 - The benchmark surfaced and fixed **two real Klarion bugs** (verdict misassignment when the cache dedups a batch; model under-filling batch verdicts) and produced a ranked detection-gap roadmap worth ~+19 points of recall.
 
@@ -46,7 +46,7 @@ Clean-corpus findings were individually reviewed by auditor agents (94 Klarion c
 ### Klarion configurations
 
 - **Klarion-AI (primary):** two-stage pipeline — deterministic detection (83 rules + Rényi entropy) then AI adjudication of every candidate via the new `claude-cli` provider (`claude -p --model haiku`, batches of 10, verdict-refill on model under-fill, retry on transient CLI failure). `filter_false_positives = true`, `min_confidence = 0.6`.
-- **Klarion candidates (no AI):** detection stage + offline heuristic only. Shown to expose the pipeline's recall ceiling, not as a product configuration.
+- **Klarion candidates (no AI):** detection stage + offline heuristic only. Shown to expose the pipeline's recall ceiling. **This is not a product configuration** and must not be quoted as one — see [§12](#12-addendum--the-no-ai-path-does-not-generalize).
 
 ---
 
@@ -80,7 +80,7 @@ Claude adjudicated all 98 candidates: **recovered 7 risk files** the heuristic w
 |---|---|---|---|
 | **Klarion-AI** | **0** | **0** | all 99 candidates adjudicated false-positive |
 | Klarion candidates | 6 | 93 | 4 fixtures / 25 placeholders / 65 noise / **0 possibly real** |
-| Klarion no AI, *after* the fix ([§10](#10-addendum--structural-suppressors-for-the-no-ai-path)) | **0** | **0** | all 99 suppressed structurally, no API key needed |
+| Klarion no AI, *after* the fix ([§10](#10-addendum--structural-suppressors-for-the-no-ai-path)) | 0 | 0 | all 99 suppressed structurally — but tuned *on these corpora*; see [§12](#12-addendum--the-no-ai-path-does-not-generalize) |
 | gitleaks | 6 | 27 | 19 fixtures / 13 placeholders / 1 noise / 0 real |
 | trufflehog | 0 | 9 | 1 fixture / 7 placeholders / 1 noise / 0 real |
 | detect-secrets | 23 | 224 | (73 sampled) 9 fixtures / 48 placeholders / 16 noise / 0 real |
@@ -223,6 +223,11 @@ leaky-repo are **not** — the latter is the regression guard that matters.
 
 ### Result (neutral config, no API key)
 
+> **These numbers do not generalize.** Each suppressor below was written in
+> response to a false positive in flask or rails, then scored on flask and rails.
+> [§12](#12-addendum--the-no-ai-path-does-not-generalize) re-runs the same
+> configuration on four unseen repositories and gets 1,516 findings.
+
 | no-AI configuration | clean-corpus FPs | risk-file recall | file precision | F1 |
 |---|---|---|---|---|
 | before | 99 | 0.43 | 0.90 | 0.58 |
@@ -280,3 +285,82 @@ python3 harness/make_report_tables.py               # regenerate tables
 ```
 
 Scores: `results/accuracy.json` · agent study (audits, gaps, features, verification): `results/study.json` · timing: `results/timing-*.json`. Raw tool output is regenerated locally into `results/raw/` and is deliberately not committed — see the note at the top.
+
+---
+
+## 12. Addendum — the no-AI path does not generalize
+
+*Added 2026-08-08, after §10. This section exists because §10's headline number
+is overfit and was being quoted as a general claim.*
+
+### Why this was measured
+
+The structural suppressors in §10 were written **in response to** the 99 false
+positives that flask and rails produced. Measuring 0 false positives on flask and
+rails afterwards demonstrates that the fix worked on flask and rails. It is not
+evidence that it generalizes, because the corpora that motivated each rule are
+the same corpora used to score it.
+
+Flask and rails are also Python and Ruby: two languages that share a short
+`snake_case` identifier convention. Nothing in the original benchmark exercised a
+language with long `CamelCase` or `SCREAMING_SNAKE` identifiers, and nothing
+exercised a repository that vendors compiled JavaScript or ships a corpus of test
+certificates.
+
+### Method
+
+Four repositories, four ecosystems, none used to develop any Klarion heuristic.
+Shallow clone at HEAD, scanned with `--ai-mode off` and a neutral config (no
+`.klarion.toml` in scope, so stock defaults only).
+
+```sh
+klarion scan <repo> --ai-mode off --show-suppressed --format json
+```
+
+### Result (no AI, unseen corpora)
+
+| repo | ecosystem | files scanned | findings | suppressed |
+|---|---|---:|---:|---:|
+| spring-boot | Java | 11,409 | **930** | 4,469 |
+| terraform | Go / HCL | 5,380 | **367** | 1,482 |
+| next.js | TypeScript / JS | 28,757 | **174** | 1,306 |
+| symfony | PHP | 14,208 | **45** | 1,029 |
+| **total** | | **59,754** | **1,516** | 8,286 |
+
+Against §10's 0 findings on 3,700 files, the no-AI path produces 1,516 findings
+on 59,754 files of comparably clean code. Sampling the source lines, essentially
+all are false.
+
+### False-positive classes, and why flask and rails could not surface them
+
+| class | example | count |
+|---|---|---:|
+| Long identifiers read as high entropy | `SseCustomerKeySHA256AttrName:` (Go struct field), `function applyDecs2301Factory() {` (JS) | 365 of 367 in terraform |
+| Certificate and key material | `.crt` / `.pem` / `.key` test fixtures; a public CA certificate is public by definition | 857 of 930 in spring-boot |
+| Vendored and compiled bundles | `packages/next/src/compiled/@babel/runtime/…` | 150 of 174 in next.js |
+| Public hashes, env var names, test URLs | `sha384-…` SRI hash; `PROVIDER_SECURITY_TOKEN = "TENCENTCLOUD_SECURITY_TOKEN"`; `redis://` in `PredisAdapterTest.php` | most of symfony's 45 |
+
+The first class is the substantive one. Normalized entropy cannot distinguish a
+long CamelCase identifier from a credential, because on that metric they are not
+distinguishable. Only a verifier that reads the surrounding code can, which is
+precisely the thing the no-AI path removes.
+
+### The AI configuration on the same corpora
+
+`symfony`, `--ai-mode on` (`claude-cli`, haiku): **45 candidates → 0 findings**,
+1,074 suppressed. The adjudicator correctly rejected every one.
+
+The other three corpora could not be measured cleanly on the benchmark machine: a
+local `claude-mem` `SessionEnd` hook cancels nested `claude -p` invocations, so 16
+of 21 batches failed with `claude-cli: exit status 1`. With `on_error =
+"fail_open"` those unverified candidates are retained, which inflated next.js to
+385 findings — **that number is a transport artifact and must not be cited.**
+Re-run on a machine with a direct API key to complete the table.
+
+### Conclusion
+
+The no-AI path is a degraded mode, not a product configuration, and §10's 0 should
+never have been presented as a general result. Documentation, marketing copy, and
+the GitHub Action now state that a model is required. The pre-filter's purpose is
+to keep AI token cost low by shrinking the candidate set — it was never an
+independent detector, and it does not behave like one.

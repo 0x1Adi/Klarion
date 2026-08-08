@@ -65,7 +65,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   from the report entirely. Matching is now anchored to whole path segments and
   file-name tokens, and only value-describing markers are matched against
   surrounding code. On leaky-repo this raises risk-file recall from 0.55 to 0.62
-  with clean corpora still at zero false positives.
+  with the flask and rails corpora still at zero false positives. Note that these
+  suppressors were tuned on those same two corpora and do not generalize; the
+  no-AI path is a degraded mode, not a supported configuration
+  (see `benchmark/REPORT.md` §12).
 - **The Anthropic request could be rejected outright.** The structured-output
   schema sent `minimum`/`maximum` on `confidence`, which the Messages API does
   not accept; `max_tokens` was also fixed at 1024 regardless of batch size, so a
@@ -120,9 +123,11 @@ secret scanner combining Rényi-entropy detection with LLM adjudication.
   user-defined custom rules via config. (Starter rules shipped; full catalog per
   DESIGN §12 in progress.)
 - **AI verifiers**: Anthropic (default, model `claude-haiku-4-5`), any
-  OpenAI-compatible endpoint, and Ollama for local/offline use, plus an offline
-  heuristic fallback so verdicts are always produced. Batching, verdict caching,
-  structured JSON outputs, and a fail-safe `on_error = keep` policy.
+  OpenAI-compatible endpoint, and Ollama for local/offline use. One of these is
+  required — the offline heuristic that runs when none is reachable exists to
+  keep the process from crashing, not to produce usable results. Batching,
+  verdict caching, structured JSON outputs, and a fail-safe `on_error = keep`
+  policy.
 - **False-positive filtering**: confident `false_positive` verdicts
   (`confidence ≥ min_confidence`) are demoted to a suppressed list; `uncertain`
   is always treated as a secret.

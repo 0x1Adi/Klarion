@@ -47,13 +47,15 @@ Measured against four scanners on real repositories. Method and raw output are i
 | **File precision** on the leaky-repo ground truth | **1.00** | 1.00 | 1.00 | 0.96 | 1.00 |
 | **Scan time**, rails at 51 MB | **0.61s** | 2.84s | 2.14s | 11.96s | 1.26s |
 
-**No API key required for those zero false positives.** `ai-mode` defaults to `auto`,
-which falls back to offline heuristics when no key is present — the configuration most CI
-runs actually execute. That fallback path is measured separately and also reports **0**
-false positives on the same corpora, at 0.62 risk-file recall and 0.93 file precision
-([REPORT §10](./benchmark/REPORT.md#10-addendum--structural-suppressors-for-the-no-ai-path)).
-Adding a key buys perfect file precision and a per-finding written rationale, not the
-absence of noise.
+**Those numbers are the AI configuration, and only the AI configuration.** Klarion needs a
+model to work. The entropy and rules pass is a candidate generator, not a detector — its job
+is to cheaply narrow millions of strings down to a few hundred so the model only has to read
+those, which is what keeps token cost per scan low. Adjudication is the product. Without it
+you are holding an entropy scanner, and an entropy scanner flags UUIDs, hashes, certificates,
+vendored code and long identifiers as readily as it flags secrets.
+
+Run it with a key. See [AI is required](#ai-is-required) for what the offline path actually
+does, measured.
 
 We do not claim the best F1. On leaky-repo, detect-secrets scores 0.70 to Klarion-AI's
 0.60 and catches 55% of risk files to our 43% — and pays 247 false positives for it. The
@@ -79,9 +81,47 @@ klarion protect         # install Klarion as a git pre-commit hook
 klarion scan . --format json
 ```
 
-Klarion looks for a `.klarion.toml` by walking up from your working directory. If it finds
-an API key it uses AI adjudication, otherwise it falls back to an offline heuristic. Either
-way you get a readable report.
+Set a key before your first scan:
+
+```sh
+export ANTHROPIC_API_KEY=sk-ant-...   # or OPENAI_API_KEY, or run a local model via ollama
+```
+
+Klarion looks for a `.klarion.toml` by walking up from your working directory. Without a
+usable model it cannot adjudicate anything, and what you get back is raw entropy output —
+see [AI is required](#ai-is-required).
+
+## AI is required
+
+Klarion is not an entropy scanner with an optional AI feature. It is an AI adjudicator with
+an entropy pre-filter. Those are different products, and only the second one is worth
+running.
+
+The pre-filter exists for cost, not for accuracy. Sending every string in a repository to a
+model would be unaffordable, so the deterministic pass narrows tens of thousands of
+candidates down to a few hundred and the model reads only those. Take the model away and
+what remains is the pre-filter's raw output — which was never meant to be shown to anyone.
+
+Here is what that looks like on four repositories with `--ai-mode off`, none of which were
+used to build Klarion's heuristics:
+
+| repo | ecosystem | files | findings with AI off |
+|---|---|---:|---:|
+| spring-boot | Java | 11,409 | 930 |
+| terraform | Go / HCL | 5,380 | 367 |
+| next.js | TypeScript / JS | 28,757 | 174 |
+| symfony | PHP | 14,208 | 45 |
+
+Essentially all of those are false. They are public CA certificates, `sha384-` integrity
+hashes, vendored and compiled bundles, environment variable *names*, and long CamelCase
+identifiers — `SseCustomerKeySHA256AttrName` in Go, `applyDecs2301Factory` in JavaScript.
+An entropy detector cannot tell those from a credential, because on the metric it computes
+they are not different. Only something that reads the surrounding code can.
+
+With adjudication enabled, symfony's 45 candidates resolve to **0** findings.
+
+If you have no key, use another tool. Klarion without a model will waste your time, and we
+would rather say so here than have you discover it on your first run.
 
 ## Why this is different
 
@@ -281,8 +321,9 @@ That is the whole configuration. By default the action:
   without every PR going red for somebody else's leak.
 - **caches AI verdicts between runs**, so unchanged code is never re-adjudicated
   and a PR pays only for the candidates it introduces.
-- **runs without an API key** if you don't set one, on the offline heuristic,
-  with a warning in the log saying so.
+- **warns loudly if no API key is set.** The run degrades to raw entropy output,
+  which is noisy enough that you should treat it as a misconfiguration rather
+  than a supported mode. Pass `anthropic-api-key:` and keep it configured.
 - **installs the scanner matching the tag you pinned** — `@v0.1.0` runs the
   v0.1.0 binary.
 
@@ -419,7 +460,7 @@ fingerprints = ["<32-hex-fingerprint>"]             # permanently accept one fin
 stopwords = ["acme_demo"]                           # extra placeholder markers
 
 [ai]
-mode = "auto"                      # auto uses AI if creds exist, on requires it, off is heuristic only
+mode = "on"                        # on requires a real verifier (recommended); auto silently degrades, off is entropy-only
 provider = "anthropic"             # anthropic, openai, ollama or claude-cli
 model = "claude-haiku-4-5"         # fast and cheap for classification
 base_url = ""                      # override endpoint for OpenAI compatible or Ollama
@@ -477,9 +518,13 @@ provider = "ollama"
 model = "llama3.1"
 ```
 
-With `mode = "off"`, or `mode = "auto"` and no credentials around, Klarion uses a built in
-heuristic verifier and never touches the network. Use `mode = "on"` if you want the scan to
-fail when a real AI verifier cannot be built.
+With `mode = "off"`, or `mode = "auto"` and no credentials around, Klarion falls back to a
+built in heuristic verifier and never touches the network. That path is a degraded mode, not
+a supported configuration — see [AI is required](#ai-is-required) for what it costs you.
+**Set `mode = "on"`** so the scan fails loudly when a real verifier cannot be built, rather
+than quietly handing you entropy noise. If you cannot send code to a hosted provider, point
+`provider = "ollama"` at a local model — that is offline *and* adjudicated, and it is the
+right answer for air-gapped environments.
 
 **Privacy.** By default (`send_secret = true`) the raw candidate and its surrounding lines go
 to the verifier, because the model needs them to tell a live key from a fixture. Set
@@ -511,7 +556,7 @@ hash the secret rather than storing it.
 | Blocks AI agents at write time | yes, MCP and Claude Code hook | no | no |
 | Git pre-commit and history | yes | yes | yes |
 | CI reports | text, json, SARIF, JUnit, GitLab | SARIF, JSON | JSON |
-| Offline mode | yes, heuristic or local LLM | yes | partial |
+| Air-gapped mode | yes, local LLM via ollama | yes | partial |
 | Single static binary | yes | yes | yes |
 
 ## What Klarion does not do

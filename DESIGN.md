@@ -11,7 +11,7 @@ Module: `github.com/0x1Adi/Klarion` · Go 1.25 · dependencies: standard library
 ### Goals
 
 - **Catch secrets written by AI coding agents at the earliest possible moment** — ideally before the bytes hit disk (write-time), otherwise before they are committed (commit-time), and always in CI as a backstop.
-- **Near-zero false positives.** A scanner that cries wolf gets disabled. Klarion spends a cheap deterministic pass to find candidates and an AI pass to adjudicate them with context, so what fails a scan is a *real* leak.
+- **Near-zero false positives, via adjudication.** A scanner that cries wolf gets disabled. Klarion spends a cheap deterministic pass to find candidates and an AI pass to adjudicate them with context, so what fails a scan is a *real* leak. **The AI pass is required, not optional.** The deterministic pass is a cost-reduction device — it shrinks the candidate set so the model reads hundreds of strings instead of millions — and it is not a detector on its own. Run without a verifier it emits raw entropy output, measured at 1,516 findings across four clean unseen repositories ([REPORT §12](./benchmark/REPORT.md#12-addendum--the-no-ai-path-does-not-generalize)).
 - **Portable, tunable entropy detection** via normalized Rényi entropy that behaves consistently across token lengths and alphabets.
 - **One binary, every surface**: CLI, git pre-commit, CI, Claude Code hook, MCP server. No runtime dependencies.
 - **Fail closed on security, fail open on ergonomics.** Uncertain verdicts count as secrets; internal scanner errors in a hook never block the user's work.

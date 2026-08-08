@@ -42,8 +42,13 @@
 #     a one-way hash and a status per candidate: no secrets, and not the model's
 #     written reason (which quotes the value it describes).
 #
-#   * no API key — the run degrades to the offline heuristic and says so with a
-#     ::warning::. It does not fail. Use ai-mode: on to require a real verifier.
+#   * no API key — THIS IS A MISCONFIGURATION, not a supported mode. Klarion
+#     needs a model to adjudicate candidates; the entropy pass alone reports
+#     ordinary identifiers, certificates and vendored code as findings (see
+#     benchmark/REPORT.md section 12). The run emits a loud ::warning:: and
+#     continues so a missing secret does not hard-break your pipeline, but you
+#     should treat that warning as a build problem and fix it. Set ai-mode: on
+#     to fail the run instead.
 #
 #   * version — defaults to the tag this action was pinned at, so
 #     `uses: 0x1Adi/Klarion@v1.2.3` installs the v1.2.3 scanner.
@@ -85,7 +90,12 @@ inputs:
     required: false
     default: "low"
   ai-mode:
-    description: "AI verification mode (auto|on|off)."
+    description: >-
+      AI verification mode (auto|on|off). Klarion requires a model to work;
+      'on' fails the run when no verifier can be built, and is recommended.
+      'auto' degrades to entropy-only output with a warning when no key is
+      present. 'off' disables adjudication entirely and is for debugging the
+      detection stage, not for scanning.
     required: false
     default: "auto"
   sarif-file:
@@ -352,7 +362,7 @@ runs:
         if [ -z "$ANTHROPIC_API_KEY" ]; then
           case "$INPUT_AI_MODE" in
             auto)
-              echo "::warning::ai-mode=auto resolved to OFF (no API key). Precision degrades to heuristic-only. Pass anthropic-api-key: \${{ secrets.ANTHROPIC_API_KEY }} as an input — step-level env: is not visible to a composite action."
+              echo "::warning::Klarion has NO API KEY, so ai-mode=auto resolved to OFF. Klarion requires a model: without adjudication this run reports raw entropy candidates and will flag identifiers, certificates and vendored code as secrets. Treat the results as unreliable. Pass anthropic-api-key: \${{ secrets.ANTHROPIC_API_KEY }} as an input — step-level env: is not visible to a composite action."
               ;;
             on)
               # Not fatal: .klarion.toml may point api_key_env at a different

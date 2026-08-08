@@ -200,7 +200,7 @@ func init() {
 	f.StringVar(&gitSince, "since", "", "with --history, only commits since this date/ref (git --since syntax)")
 	f.StringVar(&gitFailOn, "fail-on", "low", "minimum severity that fails the scan")
 	f.StringVarP(&scanFormat, "format", "f", "", "output format: text|json|sarif|junit|gitlab")
-	f.BoolVar(&scanNoAI, "no-ai", false, "disable AI verification (heuristic only)")
+	f.BoolVar(&scanNoAI, "no-ai", false, "disable AI verification. Reports raw entropy candidates and is not a supported way to scan")
 	// Parity with `scan`: CI drives both through the same inputs.
 	f.StringVar(&scanAIMode, "ai-mode", "", "AI verification mode: auto|on|off (default: config value, normally auto)")
 	f.BoolVar(&scanShowSup, "show-suppressed", false, "also report findings the verifier suppressed, with reasons")
