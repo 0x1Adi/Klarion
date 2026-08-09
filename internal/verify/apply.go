@@ -251,7 +251,21 @@ func buildRequest(index int, f *finding.Finding, cfg *config.AIConfig) Request {
 		Secret:      secret,
 		Context:     ctxText,
 		Entropy:     f.Entropy,
+		IsTestPath:  finding.IsTestPath(f.FilePath),
+		BlockType:   blockType(f),
+		Occurrences: max(f.Occurrences, 1),
 	}
+}
+
+// blockType tells the model whether it is looking at one line of a wrapped
+// credential or a standalone value. A PEM body line judged in isolation has
+// exactly one honest answer; judged as "one key block, 19 lines" it becomes a
+// question the model can actually answer usefully.
+func blockType(f *finding.Finding) string {
+	if f.Occurrences > 1 || finding.IsKeyMaterialPath(f.FilePath) {
+		return "key_block"
+	}
+	return "single_line"
 }
 
 // capContext truncates the context to at most n lines (0 or negative = no cap),

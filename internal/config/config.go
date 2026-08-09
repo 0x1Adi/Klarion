@@ -171,6 +171,10 @@ func Default() *Config {
 				// the previous run's bookkeeping as new secrets.
 				".klarion/**", ".klarion-baseline.json",
 				".git/**", "node_modules/**", "vendor/**", "dist/**", "build/**",
+				// Bundled third-party source. next.js ships Babel under
+				// packages/next/src/compiled/, which produced 150 of its 174
+				// entropy false positives.
+				"compiled/**", "third_party/**", "vendored/**",
 				"target/**", ".venv/**", "__pycache__/**",
 				"*.min.js", "*.min.css", "*.map", "*.lock", "package-lock.json",
 				"yarn.lock", "pnpm-lock.yaml", "go.sum", "Cargo.lock",

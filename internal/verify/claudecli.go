@@ -149,6 +149,12 @@ func (c *claudeCLIVerifier) verifyOnce(ctx context.Context, batch []Request) ([]
 		"-p",
 		"--model", c.model,
 		"--system-prompt", systemPrompt,
+		// The payload is self-contained, so the verifier needs no tools.
+		// Left enabled, `claude -p` runs a full agent loop: it re-reads files
+		// and shells out (keytool, rg) before ruling. That is many turns per
+		// candidate, makes verdicts non-deterministic, and hands an agent
+		// Bash access to the untrusted checkout being scanned.
+		"--disallowedTools", "Bash,Read,Write,Edit,Glob,Grep,WebFetch,WebSearch,Task,TodoWrite,NotebookEdit",
 	)
 	cmd.Stdin = strings.NewReader(buildUserPrompt(batch))
 	var stdout, stderr bytes.Buffer

@@ -62,6 +62,11 @@ func (p *pipeline) Close() {
 // verdictAndFilter runs AI adjudication over the candidates, applies the
 // baseline, and splits the set into findings to act on and suppressed ones.
 func (p *pipeline) verdictAndFilter(ctx context.Context, candidates []finding.Finding) (active, suppressed []finding.Finding, err error) {
+	// One wrapped private key is one finding, not one per line of its base64
+	// body. Collapsing here fixes the report and removes the duplicate model
+	// calls in the same pass.
+	candidates = finding.CollapseKeyBlocks(candidates)
+
 	// Baseline: known-accepted fingerprints are suppressed up front so we
 	// don't spend model calls re-adjudicating them.
 	if p.cfg.Baseline.Path != "" {

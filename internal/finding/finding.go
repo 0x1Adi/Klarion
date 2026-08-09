@@ -93,6 +93,7 @@ type Finding struct {
 	Message     string   `json:"commit_message,omitempty"`
 	Fingerprint string   `json:"fingerprint"`
 	Verdict     Verdict  `json:"verdict"`
+	Occurrences int      `json:"occurrences,omitempty"` // source lines this one credential spans (wrapped key blocks)
 	Tags        []string `json:"tags,omitempty"`
 	Suppressed  bool     `json:"suppressed,omitempty"` // true when baseline/allowlist suppressed it
 }

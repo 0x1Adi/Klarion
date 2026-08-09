@@ -27,6 +27,14 @@ type Request struct {
 	Secret      string  `json:"secret"`
 	Context     string  `json:"context"`
 	Entropy     float64 `json:"entropy"`
+
+	// Metadata that lets the model decide without reading the repository.
+	// Without these it sees five lines of base64 from the middle of a PEM
+	// body and can only answer "yes, that is a private key" -- correct, and
+	// useless, because it cannot tell a live key from a test fixture.
+	IsTestPath  bool   `json:"is_test_path"`
+	BlockType   string `json:"block_type"`  // "key_block" | "single_line"
+	Occurrences int    `json:"occurrences"` // lines the credential spans
 }
 
 // Verifier adjudicates a batch of candidates. Implementations must return
