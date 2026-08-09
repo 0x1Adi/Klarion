@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./assets/hero.svg" alt="Klarion, secret scanning without the false alarms. Zero false positives across 3,700 files, 1.00 file precision, 0.61 seconds to scan Rails." width="100%">
+<img src="./assets/hero.svg" alt="Klarion. An entropy pre-filter narrows candidates; a model decides which are real." width="100%">
 
 <br><br>
 
@@ -36,16 +36,41 @@ would have put in front of you, and Klarion judged every one of them and moved o
 
 ## The numbers
 
-<img src="./assets/false-positives.svg" alt="False positives on 3,700 files of clean code. Klarion 0, trufflehog 9, gitleaks 33, ripsecrets 61, detect-secrets 247." width="100%">
+<img src="./assets/false-positives.svg" alt="False positives on flask and rails, 3,700 files of clean code. Klarion 0, trufflehog 9, gitleaks 33, ripsecrets 61, detect-secrets 247." width="100%">
 
 Measured against four scanners on real repositories. Method and raw output are in
 [benchmark/REPORT.md](./benchmark/REPORT.md), and the corpora are pinned so you can rerun it.
+
+Two measurements matter, and they say different things. Both are here because we
+published the first one on its own, were wrong to, and would rather you saw that.
+
+**On the corpora Klarion was tuned against** — flask and rails at HEAD, 3,700 files
+of real code containing no live secrets. Every finding from every tool was audited
+by hand.
 
 | | Klarion | gitleaks | trufflehog | detect-secrets | ripsecrets |
 | --- | :--: | :--: | :--: | :--: | :--: |
 | **False positives** on 3,700 files of clean code | **0** | 33 | 9 | 247 | 61 |
 | **File precision** on the leaky-repo ground truth | **1.00** | 1.00 | 1.00 | 0.96 | 1.00 |
-| **Scan time**, rails at 51 MB | **0.61s** | 2.84s | 2.14s | 11.96s | 1.26s |
+
+**On four ecosystems it had never seen** — spring-boot, terraform, next.js and
+symfony. 59,754 files, no Ruby and no Python.
+
+| repo | ecosystem | candidates (pre-filter) | findings (AI on) |
+| --- | --- | --: | --: |
+| spring-boot | Java | 930 | 272 |
+| terraform | Go / HCL | 367 | 26 |
+| next.js | TypeScript / JS | 174 | 10 |
+| symfony | PHP | 45 | 8 |
+| **total** | | **1,516** | **316** |
+
+Adjudication removes 79% of what the pre-filter emits on code it has never seen.
+What survives is concentrated in test-fixture key material — see
+[benchmark/REPORT.md](./benchmark/REPORT.md) for the file-by-file breakdown.
+
+Stage 1 is the fastest of the five tools measured on rails at 51 MB. That timing
+predates the current suppression and collapse passes and is being re-measured, so
+we are not quoting a figure until it is.
 
 **Those numbers are the AI configuration, and only the AI configuration.** Klarion needs a
 model to work. The entropy and rules pass is a candidate generator, not a detector — its job
@@ -118,7 +143,10 @@ identifiers — `SseCustomerKeySHA256AttrName` in Go, `applyDecs2301Factory` in 
 An entropy detector cannot tell those from a credential, because on the metric it computes
 they are not different. Only something that reads the surrounding code can.
 
-With adjudication enabled, symfony's 45 candidates resolve to **0** findings.
+With adjudication enabled those 1,516 become **316** — a 79% cut. Per corpus:
+spring-boot 930 to 272, terraform 367 to 26, next.js 174 to 10, symfony 45 to 8.
+Not zero, and we would rather print the real number than the one from our best
+corpus. The remainder is almost entirely private keys committed as test fixtures.
 
 If you have no key, use another tool. Klarion without a model will waste your time, and we
 would rather say so here than have you discover it on your first run.
@@ -209,12 +237,53 @@ placeholder values get filtered out before scoring.
 </details>
 
 <details>
+<summary><b>Between the stages, collapsing armored blocks</b></summary>
+
+<br>
+
+A wrapped PEM or PGP block makes every line of its base64 body look like a
+high-entropy string, so one credential used to be reported once per line — 19
+times for a private key in spring-boot, 175 times for an embedded public key in
+terraform's `public_keys.go`. Runs of three or more same-rule findings on
+consecutive lines are merged into a single finding carrying an occurrence count.
+
+Eligibility is deliberately narrow: the file is key material by path (`.pem`,
+`.key`, `id_rsa`, …), or it contains an armor header anywhere. Armor is evaluated
+per file rather than per run, because a context window spans only a few lines and
+would leave every run after the first uncollapsed.
+
+A `.env` or YAML file holding several distinct secrets on consecutive lines is
+never merged. That would hide real leaks, which costs far more than the noise it
+would remove.
+
+Collapsing happens before adjudication, so it removes the duplicate model calls
+in the same pass.
+
+</details>
+
+<details>
 <summary><b>Stage 2, how the AI verdict works</b></summary>
 
 <br>
 
-Candidates go out in batches with a few lines of surrounding context. For each one the model
-returns:
+Candidates go out in batches. Each carries the rule that fired and its description,
+the file path and line, the value, a capped window of surrounding source, the
+entropy score, and three fields that let the model judge without going looking:
+`is_test_path`, `block_type` (`key_block` or `single_line`), and `occurrences`.
+
+That last group is the difference between a useful verdict and a useless one.
+Handed five lines of base64 from the middle of a key body, a model can only answer
+"yes, that is a private key" — correct, and no help. Told it is one key block of
+nineteen lines living under `src/test/resources`, it can tell a fixture from a
+live credential.
+
+The verifier is given **no tools and no access to the repository**. The payload is
+self-contained by design. The Claude CLI provider passes `--disallowedTools`
+explicitly: left enabled it runs a full agent loop, re-reading files and shelling
+out before ruling, which adds latency, makes verdicts non-deterministic, and hands
+an agent shell access to the checkout being scanned.
+
+For each candidate the model returns:
 
 `secret`, a real leaked credential, which fails the scan.
 
@@ -223,8 +292,14 @@ when confidence clears `min_confidence`.
 
 `uncertain`, which Klarion treats as a secret. A security tool should fail safe.
 
-If the verifier itself errors, the `on_error = "keep"` policy leaves candidates unverified
-rather than dropping them.
+If the verifier itself errors, the default `on_error = "keep"` policy retains those
+candidates rather than dropping them — failing open is the safer direction for a
+security tool. Be aware of what that looks like: **unverified candidates are
+reported as findings**, so a provider outage or a rate limit on a large scan
+surfaces as a sudden spike of low-quality results. Rate limiting is the common
+trigger, not outages, and retry-with-backoff is not implemented yet. Set
+`on_error = "fail"` if you would rather the run stop than report unadjudicated
+candidates.
 
 Run `klarion scan . --show-suppressed` to audit everything the AI filtered out. The low false
 positive claim is only worth believing if you can see what was hidden.
@@ -399,6 +474,8 @@ it has not already judged:
   to restore from the Actions cache.
 - On a pull request only the candidates in the diff are considered in the first
   place.
+- Armored key blocks are collapsed before adjudication, so a 19-line private key
+  costs one model call instead of nineteen.
 
 So the steady state is: a PR pays for the new candidates it introduces, and
 nothing else. The GitHub Action wires the cache up for you; elsewhere, pass
@@ -542,7 +619,7 @@ hash the secret rather than storing it.
 | :--: | --- |
 | `0` | Clean, no unsuppressed secrets |
 | `1` | Secrets found |
-| `2` | Operational error, like bad config or I/O |
+| `2` | Operational error — bad config, I/O, or a verifier failure under `on_error = "fail"` |
 
 ## How it compares
 
