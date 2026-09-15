@@ -11,7 +11,14 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      # Semver tags only. "v*" also matched the moving major-alias tag v0, so
+      # every `git push -f origin v0` started a second goreleaser run for a tag
+      # that already had a release. That run uploads all its artifacts, then
+      # dies renaming its draft with
+      #   422 Validation Failed [Field:tag_name Code:already_exists]
+      # leaving an orphan "untagged-..." draft behind each time.
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
 
 permissions:
   contents: read

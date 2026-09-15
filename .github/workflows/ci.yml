@@ -74,7 +74,13 @@ jobs:
 
       # Known vulnerabilities in the module graph and in the Go toolchain
       # itself. Reachability-aware, so it only fails on code we actually call.
+      # GOTOOLCHAIN=auto lets `go install` fetch a newer toolchain when the tool
+      # needs one. setup-go pins GOTOOLCHAIN=local, so govulncheck v1.8.0 —
+      # which requires go >= 1.26 — failed to install against our go 1.25.
+      # Without this, every toolchain bump upstream breaks this job.
       - name: govulncheck
+        env:
+          GOTOOLCHAIN: auto
         run: |
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
@@ -82,6 +88,8 @@ jobs:
       # Static analysis for the usual Go footguns. -exclude-generated keeps it
       # off vendored/generated code; the ruleset is the default one.
       - name: gosec
+        env:
+          GOTOOLCHAIN: auto
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
           gosec -exclude-generated -severity medium ./...
@@ -126,7 +134,15 @@ jobs:
       - name: Build klarion
         run: go build -trimpath -o klarion ./cmd/klarion
 
-      # Fixtures carry documented-fake secrets but are allowlisted in
-      # .klarion.toml, so a healthy tree scans clean and exits 0.
+      # Dogfood the real path: a genuine model adjudicates, exactly as a user
+      # gets. ai.mode defaults to "on", so this step needs a verifier -- with
+      # no key the scan exits 2 rather than quietly reporting entropy output.
+      #
+      # The CI config is separate from the repo-root .klarion.toml so that a
+      # contributor running `klarion scan .` locally still uses their own
+      # provider. Fixtures carry documented-fake secrets and are allowlisted in
+      # both, so a healthy tree exits 0.
       - name: Scan repository
-        run: ./klarion scan .
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: ./klarion scan . --config .github/klarion-ci.toml

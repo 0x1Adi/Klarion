@@ -1,0 +1,38 @@
+# Klarion's CI scan configuration.
+#
+# Kept separate from the repo-root .klarion.toml on purpose. That file is what a
+# contributor picks up when they run `klarion scan .` locally, so it stays
+# provider-agnostic and lets their own key decide. This one pins CI to a
+# specific provider, and only CI passes it with --config.
+#
+# No secret lives here: api_key_env names an environment variable, and the value
+# comes from the GROQ_API_KEY repository secret.
+
+[ai]
+mode = "on"
+provider = "openai"                            # OpenAI-compatible; Groq is one
+model = "openai/gpt-oss-20b"
+base_url = "https://api.groq.com/openai/v1"
+api_key_env = "GROQ_API_KEY"
+# A provider error must fail the job rather than leave candidates unverified:
+# under the default "keep" they would be reported as findings and the self-scan
+# would go red for a reason that has nothing to do with this repository.
+on_error = "fail"
+
+# Mirrors the root config: fixture files carry documented-fake secrets.
+[allowlist]
+paths = [
+  "testdata/**",
+  "docs/**",
+  "examples/**",
+  "**/*_test.go",
+  "internal/rules/builtin.go",
+  "benchmark/results/**",
+  "benchmark/datasets/**",
+  "benchmark/REPORT.md",
+  "DESIGN.md",
+  "README.md",
+  "CHANGELOG.md",
+  "claude-plugin/**",
+  ".github/klarion-ci.toml",
+]
