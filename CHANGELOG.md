@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Model output with more than one JSON object no longer kills the scan.**
+  `parseBatchResults` sliced from the first `{` to the last `}`, so two
+  concatenated objects became `{...},{...}` and failed with `invalid character
+  ',' after top-level value` — fatal under `on_error = "fail"`, and silently
+  retained as unverified findings under `"keep"`. Observed from Groq's
+  `openai/gpt-oss-20b` in JSON mode. Extraction is now brace-balanced and
+  string-aware, verdicts are merged across objects rather than taking only the
+  first (taking the first dropped verdicts, which then resolved as `uncertain`
+  and were reported as findings), and a bare result array with no `results`
+  wrapper is accepted. Unusable output is still an error, never a silent empty
+  batch.
+
 ### Changed
 
 - **`ai.mode` now defaults to `"on"` instead of `"auto"`.** A missing API key is

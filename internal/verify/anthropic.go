@@ -388,24 +388,115 @@ func firstText(ar anthropicResponse) string {
 // wrapped in prose or a ```json fence by extracting the outermost object.
 func parseBatchResults(text string) (batchResults, error) {
 	var br batchResults
-	s := extractJSONObject(text)
-	if s == "" {
+
+	// Fast path: the whole payload is the object we asked for.
+	if err := json.Unmarshal([]byte(strings.TrimSpace(text)), &br); err == nil && br.Results != nil {
+		return br, nil
+	}
+
+	objs := extractJSONObjects(text)
+	if len(objs) == 0 {
+		// Some models drop the {"results": ...} wrapper and emit the array
+		// directly. That is still unambiguous, so accept it.
+		if items, err := parseResultArray(text); err == nil {
+			return batchResults{Results: items}, nil
+		}
 		return br, fmt.Errorf("no JSON object in model output")
 	}
-	if err := json.Unmarshal([]byte(s), &br); err != nil {
-		return br, fmt.Errorf("parse model JSON: %w", err)
+
+	// Merge across objects. A model under JSON mode sometimes splits one batch
+	// into several concatenated objects; taking only the first would silently
+	// drop verdicts, which then resolve as "uncertain" and are reported as
+	// findings. Merging keeps every verdict the model actually produced.
+	var merged []batchResult
+	var firstErr error
+	for _, o := range objs {
+		var one batchResults
+		if err := json.Unmarshal([]byte(o), &one); err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		merged = append(merged, one.Results...)
 	}
+	if len(merged) == 0 {
+		if items, err := parseResultArray(text); err == nil {
+			return batchResults{Results: items}, nil
+		}
+		if firstErr != nil {
+			return br, fmt.Errorf("parse model JSON: %w", firstErr)
+		}
+		return br, fmt.Errorf("no verdicts in model output")
+	}
+	br.Results = merged
 	return br, nil
 }
 
-// extractJSONObject returns the substring from the first '{' to the last '}'.
-// Structured outputs return bare JSON, but chat/JSON-mode fallbacks may add a
-// fence or whitespace; this keeps parsing robust without a full tokenizer.
-func extractJSONObject(s string) string {
-	start := strings.IndexByte(s, '{')
-	end := strings.LastIndexByte(s, '}')
+// parseResultArray accepts a bare array of result objects, for models that omit
+// the {"results": ...} wrapper.
+func parseResultArray(text string) ([]batchResult, error) {
+	start := strings.IndexByte(text, '[')
+	end := strings.LastIndexByte(text, ']')
 	if start < 0 || end <= start {
-		return ""
+		return nil, fmt.Errorf("no JSON array")
 	}
-	return s[start : end+1]
+	var items []batchResult
+	if err := json.Unmarshal([]byte(text[start:end+1]), &items); err != nil {
+		return nil, err
+	}
+	if len(items) == 0 {
+		return nil, fmt.Errorf("empty array")
+	}
+	return items, nil
+}
+
+// extractJSONObjects returns every balanced top-level JSON object in s, in
+// order, ignoring braces that appear inside string literals.
+//
+// The previous implementation sliced from the first '{' to the last '}'. That
+// works for one object and corrupts everything else: two objects in a row
+// became "{...}{...}" or "{...},{...}", which json.Unmarshal rejects with
+// "invalid character ',' after top-level value" and, under on_error=fail, kills
+// the scan. Observed in practice from an OpenAI-compatible provider in JSON
+// mode, so it is a reachable path, not a theoretical one.
+//
+// Prose, markdown fences and trailing commentary around the objects are all
+// tolerated because only balanced brace runs are collected.
+func extractJSONObjects(s string) []string {
+	var out []string
+	depth, start := 0, -1
+	inStr, escaped := false, false
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if inStr {
+			switch {
+			case escaped:
+				escaped = false
+			case c == '\\':
+				escaped = true
+			case c == '"':
+				inStr = false
+			}
+			continue
+		}
+		switch c {
+		case '"':
+			inStr = true
+		case '{':
+			if depth == 0 {
+				start = i
+			}
+			depth++
+		case '}':
+			if depth > 0 {
+				depth--
+				if depth == 0 && start >= 0 {
+					out = append(out, s[start:i+1])
+					start = -1
+				}
+			}
+		}
+	}
+	return out
 }

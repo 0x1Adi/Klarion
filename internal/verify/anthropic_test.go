@@ -182,3 +182,48 @@ func TestMapStatus(t *testing.T) {
 		}
 	}
 }
+
+// TestParseBatchResultsMalformed covers the shapes real providers emit under
+// JSON mode. The concatenated-object case is not hypothetical: Groq's
+// openai/gpt-oss-20b produced it, and the old first-'{'-to-last-'}' slice
+// turned it into "{...},{...}", failing with "invalid character ',' after
+// top-level value" and killing the scan under on_error=fail.
+func TestParseBatchResultsMalformed(t *testing.T) {
+	one := `{"index":0,"status":"secret","confidence":0.9,"reason":"a"}`
+	two := `{"index":1,"status":"false_positive","confidence":0.8,"reason":"b"}`
+
+	cases := []struct {
+		name string
+		in   string
+		want int
+	}{
+		{"plain", `{"results":[` + one + `,` + two + `]}`, 2},
+		{"markdown fence", "```json\n" + `{"results":[` + one + `]}` + "\n```", 1},
+		{"prose around it", "Here you go:\n" + `{"results":[` + one + `]}` + "\nHope that helps.", 1},
+		{"two objects concatenated", `{"results":[` + one + `]}` + `{"results":[` + two + `]}`, 2},
+		{"two objects comma separated", `{"results":[` + one + `]},{"results":[` + two + `]}`, 2},
+		{"bare array, no wrapper", `[` + one + `,` + two + `]`, 2},
+		{"brace inside a string value",
+			`{"results":[{"index":0,"status":"secret","confidence":0.9,"reason":"looks like {json} here"}]}`, 1},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			br, err := parseBatchResults(c.in)
+			if err != nil {
+				t.Fatalf("parseBatchResults: %v", err)
+			}
+			if len(br.Results) != c.want {
+				t.Fatalf("got %d results, want %d (%+v)", len(br.Results), c.want, br.Results)
+			}
+		})
+	}
+
+	// Genuinely unusable output must still be an error, not a silent empty
+	// batch — every unresolved candidate has to surface as uncertain.
+	for _, bad := range []string{"", "I cannot help with that.", "{{{"} {
+		if _, err := parseBatchResults(bad); err == nil {
+			t.Errorf("parseBatchResults(%q): want error, got nil", bad)
+		}
+	}
+}
