@@ -383,7 +383,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0       # needed so a PR's base commit is available
-      - uses: 0x1Adi/Klarion@v0.1.0
+      - uses: 0x1Adi/Klarion@v0.2.2
         with:
           fail-on-severity: medium
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -399,13 +399,13 @@ That is the whole configuration. By default the action:
 - **warns loudly if no API key is set.** The run degrades to raw entropy output,
   which is noisy enough that you should treat it as a misconfiguration rather
   than a supported mode. Pass `anthropic-api-key:` and keep it configured.
-- **installs the scanner matching the tag you pinned** — `@v0.1.0` runs the
-  v0.1.0 binary.
+- **installs the scanner matching the tag you pinned** — `@v0.2.2` runs the
+  v0.2.2 binary.
 
 Useful overrides:
 
 ```yaml
-      - uses: 0x1Adi/Klarion@v0.1.0
+      - uses: 0x1Adi/Klarion@v0.2.2
         with:
           scan-mode: full          # auto | diff | full | history
           base: ${{ github.event.pull_request.base.sha }}

@@ -15,7 +15,7 @@
 #         security-events: write
 #       steps:
 #         - uses: actions/checkout@v6
-#         - uses: 0x1Adi/Klarion@v0.1.0
+#         - uses: 0x1Adi/Klarion@v0.2.2
 #           with:
 #             path: .
 #             fail-on-severity: medium
@@ -159,7 +159,7 @@ inputs:
     default: ""
   version:
     description: >-
-      Klarion release tag to install (e.g. v0.1.0), or "latest" for the newest
+      Klarion release tag to install (e.g. v0.2.2), or "latest" for the newest
       release. Defaults to the tag this action was pinned at, so
       `uses: 0x1Adi/Klarion@v1.2.3` runs the v1.2.3 scanner.
     required: false
