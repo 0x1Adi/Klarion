@@ -364,7 +364,7 @@ runs:
         if [ -z "$ANTHROPIC_API_KEY" ]; then
           case "$INPUT_AI_MODE" in
             auto)
-              echo "::warning::Klarion has NO API KEY, so ai-mode=auto resolved to OFF. Klarion requires a model: without adjudication this run reports raw entropy candidates and will flag identifiers, certificates and vendored code as secrets. Treat the results as unreliable. Pass anthropic-api-key: \${{ secrets.ANTHROPIC_API_KEY }} as an input — step-level env: is not visible to a composite action."
+              echo "::warning::Klarion has NO API KEY, so ai-mode=auto resolved to OFF. Klarion requires a model: without adjudication this run reports raw entropy candidates and will flag identifiers, certificates and vendored code as secrets. Treat the results as unreliable. Pass the key through the anthropic-api-key input, set from your ANTHROPIC_API_KEY repository secret — a step-level env: block is not visible inside a composite action."
               ;;
             on)
               # Not fatal: .klarion.toml may point api_key_env at a different

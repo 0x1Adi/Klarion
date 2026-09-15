@@ -50,6 +50,23 @@ jobs:
       - name: go vet
         run: go vet ./...
 
+      # A composite action has no `secrets` context. Referencing it does not
+      # fail at runtime -- the runner refuses to load the manifest at all, so
+      # every consumer gets "Unrecognized named-value: 'secrets'" and the action
+      # is dead on arrival. It shipped in v0.2.0 and v0.2.1 because nothing here
+      # parses action.yml: Go tests cannot see it.
+      #
+      # The value was intended as literal text inside a warning message, escaped
+      # with a backslash. Backslashes do not escape ${{ }} -- the runner parses
+      # it regardless.
+      - name: action.yml does not reference the secrets context
+        run: |
+          if grep -nE '^[^#]*\$\{\{[^}]*secrets\.' action.yml; then
+            echo "::error::action.yml references the secrets context, which does not exist in a composite action. The runner will refuse to load the manifest. Use an input instead."
+            exit 1
+          fi
+          echo "ok: no secrets context in action.yml"
+
       - name: Test (race + coverage)
         run: go test ./... -race -coverprofile=coverage.out -covermode=atomic
 
