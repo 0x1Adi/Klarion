@@ -114,7 +114,7 @@ func init() {
 	f.StringVarP(&scanFormat, "format", "f", "", "output format: text|json|sarif|junit|gitlab")
 	f.StringVar(&scanFailOn, "fail-on", "low", "minimum severity that fails the scan (low|medium|high|critical)")
 	f.BoolVar(&scanNoAI, "no-ai", false, "disable AI verification; same as --ai-mode off. Reports raw entropy candidates and is not a supported way to scan")
-	f.StringVar(&scanAIMode, "ai-mode", "", "AI verification mode: auto|on|off (default: config value, normally auto)")
+	f.StringVar(&scanAIMode, "ai-mode", "", "AI verification mode: on|auto|off (default: config value, normally on)")
 	f.BoolVar(&scanShowSec, "show-secrets", false, "show raw secrets in output (DANGEROUS)")
 	f.BoolVar(&scanShowSup, "show-suppressed", false, "also report findings the verifier suppressed, with reasons")
 	f.StringVar(&scanCachePath, "cache-path", "", "persist AI verdicts to `file` and reuse them on later runs (default: ai.cache_path)")

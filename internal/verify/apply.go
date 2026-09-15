@@ -14,18 +14,21 @@ import (
 // Build constructs the Verifier dictated by cfg. The mode governs the
 // safety/availability tradeoff:
 //
-//   - "off":  offline heuristic only (never calls out).
+//   - "on":   (default) require the AI provider; error out if credentials are
+//     missing, so a misconfigured pipeline fails loudly instead of quietly
+//     reporting pre-filter output as findings.
 //   - "auto": use the configured AI provider when credentials are present,
-//     otherwise transparently fall back to the heuristic.
-//   - "on":   require the AI provider; error out if credentials are missing so
-//     a misconfigured "must verify with AI" pipeline fails loudly.
+//     otherwise transparently fall back to the heuristic. Best-effort, and a
+//     silent downgrade — opt in deliberately.
+//   - "off":  offline heuristic only (never calls out). For debugging the
+//     detection stage, not for scanning.
 //
 // AI providers are wrapped in an (in-memory) verdict cache to collapse repeated
 // candidates within a scan.
 func Build(cfg *config.AIConfig) (Verifier, error) {
 	mode := strings.ToLower(strings.TrimSpace(cfg.Mode))
 	if mode == "" {
-		mode = "auto"
+		mode = "on"
 	}
 
 	switch mode {

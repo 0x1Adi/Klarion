@@ -537,7 +537,7 @@ fingerprints = ["<32-hex-fingerprint>"]             # permanently accept one fin
 stopwords = ["acme_demo"]                           # extra placeholder markers
 
 [ai]
-mode = "on"                        # on requires a real verifier (recommended); auto silently degrades, off is entropy-only
+mode = "on"                        # default; requires a real verifier. auto silently degrades, off is entropy-only
 provider = "anthropic"             # anthropic, openai, ollama or claude-cli
 model = "claude-haiku-4-5"         # fast and cheap for classification
 base_url = ""                      # override endpoint for OpenAI compatible or Ollama
@@ -595,6 +595,7 @@ provider = "ollama"
 model = "llama3.1"
 ```
 
+The default is `mode = "on"`: no usable verifier is a hard error, not a fallback.
 With `mode = "off"`, or `mode = "auto"` and no credentials around, Klarion falls back to a
 built in heuristic verifier and never touches the network. That path is a degraded mode, not
 a supported configuration — see [AI is required](#ai-is-required) for what it costs you.

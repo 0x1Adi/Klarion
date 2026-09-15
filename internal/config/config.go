@@ -96,8 +96,16 @@ type CustomRule struct {
 }
 
 type AIConfig struct {
-	// Mode: "auto" (use AI when credentials are available), "on" (fail if the
-	// verifier can't be constructed), "off" (heuristic verification only).
+	// Mode: "on" (default — require a real verifier and fail if none can be
+	// constructed), "auto" (use AI when credentials happen to be available,
+	// otherwise degrade silently), "off" (heuristic verification only).
+	//
+	// The default is "on" because Klarion is an adjudicator with an entropy
+	// pre-filter, not an entropy scanner with an optional AI feature. A missing
+	// key is a misconfiguration, and "auto" turns it into a quiet downgrade to
+	// output that flags identifiers, certificates and vendored code as secrets.
+	// Failing loudly is the only honest default; "auto" remains available for
+	// callers who genuinely want best-effort behaviour.
 	Mode string `toml:"mode"`
 	// Provider: "anthropic" (Messages API over plain net/http, no SDK),
 	// "openai" (any OpenAI-compatible endpoint), "ollama" (alias for openai
@@ -195,7 +203,7 @@ func Default() *Config {
 			RequireDigit:       true,
 		},
 		AI: AIConfig{
-			Mode:     "auto",
+			Mode:     "on",
 			Provider: "anthropic",
 			Model:    "claude-haiku-4-5",
 			// APIKeyEnv intentionally unset — resolved per provider. See the

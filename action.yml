@@ -91,13 +91,14 @@ inputs:
     default: "low"
   ai-mode:
     description: >-
-      AI verification mode (auto|on|off). Klarion requires a model to work;
-      'on' fails the run when no verifier can be built, and is recommended.
-      'auto' degrades to entropy-only output with a warning when no key is
-      present. 'off' disables adjudication entirely and is for debugging the
-      detection stage, not for scanning.
+      AI verification mode (on|auto|off). Klarion requires a model to work, so
+      'on' is the default: the run fails when no verifier can be built. 'auto'
+      degrades to entropy-only output with a warning when no key is present —
+      best-effort, and a silent downgrade in everything but the log. 'off'
+      disables adjudication entirely and is for debugging the detection stage,
+      not for scanning.
     required: false
-    default: "auto"
+    default: "on"
   sarif-file:
     description: "Path to write the SARIF report to."
     required: false
@@ -111,7 +112,8 @@ inputs:
   anthropic-api-key:
     description: >-
       API key for the LLM verifier. Pass secrets.ANTHROPIC_API_KEY. Required
-      for ai-mode: on; without it ai-mode: auto degrades to heuristic-only.
+      under the default ai-mode: on — without a key (here or via api_key_env)
+      the run fails rather than reporting unadjudicated candidates.
     required: false
     default: ""
   args:

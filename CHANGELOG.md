@@ -5,6 +5,20 @@ All notable changes to Klarion are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **`ai.mode` now defaults to `"on"` instead of `"auto"`.** A missing API key is
+  a misconfiguration, and the scan now fails with exit 2 naming the variable it
+  wants, rather than quietly falling back to the offline heuristic. Under
+  `"auto"` a keyless run produced pre-filter output while the log still read as
+  a successful scan — 1,516 findings across four unseen ecosystems where
+  adjudication gives 316 — and the documentation already said a model was
+  required. The default and the docs now agree. `--ai-mode auto` and
+  `--ai-mode off` remain available as explicit opt-ins, and the GitHub Action's
+  `ai-mode` input defaults to `on` to match.
+
 ## [0.1.0] - 2026-08-08
 
 ### Added

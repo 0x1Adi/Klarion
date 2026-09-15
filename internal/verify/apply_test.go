@@ -402,3 +402,34 @@ func TestBuildUserPromptReindexes(t *testing.T) {
 		t.Errorf("sparse caller indices leaked into prompt: %s", got)
 	}
 }
+
+// TestDefaultModeRequiresAVerifier guards the decision that a missing key is a
+// misconfiguration rather than a reason to fall back.
+//
+// Klarion is an adjudicator with an entropy pre-filter, not an entropy scanner
+// with an optional AI feature: measured across four unseen ecosystems the
+// pre-filter alone emits 1,516 findings that adjudication reduces to 316. A
+// default of "auto" turned a missing key into a quiet downgrade to that first
+// number while the log still read as a successful scan. If this test starts
+// failing because the default moved back, that contradiction is back with it.
+func TestDefaultModeRequiresAVerifier(t *testing.T) {
+	if got := config.Default().AI.Mode; got != "on" {
+		t.Fatalf("default ai.mode = %q, want %q", got, "on")
+	}
+
+	// Empty Mode must resolve the same way, so a directly-constructed config
+	// cannot silently opt out of adjudication.
+	for _, mode := range []string{"", "on"} {
+		_, err := Build(&config.AIConfig{Mode: mode, Provider: "anthropic", APIKeyEnv: "KLARION_ABSENT_KEY"})
+		if err == nil {
+			t.Errorf("Build(mode=%q) with no credentials: want error, got nil", mode)
+		}
+	}
+
+	// The documented escape hatches must still work without credentials.
+	for _, mode := range []string{"off", "auto"} {
+		if _, err := Build(&config.AIConfig{Mode: mode, Provider: "anthropic", APIKeyEnv: "KLARION_ABSENT_KEY"}); err != nil {
+			t.Errorf("Build(mode=%q) with no credentials: want fallback, got %v", mode, err)
+		}
+	}
+}
