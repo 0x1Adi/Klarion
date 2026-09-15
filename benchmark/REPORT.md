@@ -335,27 +335,77 @@ all are false.
 
 | class | example | count |
 |---|---|---:|
-| Long identifiers read as high entropy | `SseCustomerKeySHA256AttrName:` (Go struct field), `function applyDecs2301Factory() {` (JS) | 365 of 367 in terraform |
-| Certificate and key material | `.crt` / `.pem` / `.key` test fixtures; a public CA certificate is public by definition | 857 of 930 in spring-boot |
+| Armored blocks reported once per base64 line | two embedded `-----BEGIN PGP PUBLIC KEY BLOCK-----` in `getproviders/public_keys.go` (175) and `releaseauth/signature.go` (121); `.crt` / `.pem` / `.key` test fixtures | 296 of 367 in terraform, 857 of 930 in spring-boot |
+| Long identifiers read as high entropy | `SseCustomerKeySHA256AttrName:` (Go struct field), `function applyDecs2301Factory() {` (JS), `PROVIDER_SECURITY_TOKEN = "TENCENTCLOUD_SECURITY_TOKEN"` (env var *name*) | most of terraform's remaining 71, and next.js outside `compiled/` |
 | Vendored and compiled bundles | `packages/next/src/compiled/@babel/runtime/…` | 150 of 174 in next.js |
-| Public hashes, env var names, test URLs | `sha384-…` SRI hash; `PROVIDER_SECURITY_TOKEN = "TENCENTCLOUD_SECURITY_TOKEN"`; `redis://` in `PredisAdapterTest.php` | most of symfony's 45 |
+| Public hashes and test URLs | `sha384-…` SRI hash (public by design); `redis://` in `PredisAdapterTest.php` | most of symfony's 45 |
 
-The first class is the substantive one. Normalized entropy cannot distinguish a
-long CamelCase identifier from a credential, because on that metric they are not
-distinguishable. Only a verifier that reads the surrounding code can, which is
-precisely the thing the no-AI path removes.
+**Correction, 2026-09-15.** An earlier revision of this table attributed 365 of
+terraform's 367 findings to the identifier class. That was wrong. Re-reading the
+source lines, 296 of the 367 are in two files that embed PGP public key blocks as
+string literals, flagged once per line of base64 body. The identifier class is
+real — it is the dominant class in next.js and in terraform's remainder — but
+terraform's headline number was mostly a per-line reporting bug, not an entropy
+failure. That bug is fixed; see the collapse pass note below.
+
+Two distinct problems hide in this table, and only one is about entropy.
+
+The **identifier class is the substantive one.** Normalized entropy cannot
+distinguish a long CamelCase identifier from a credential, because on that metric
+they are not distinguishable. Only a verifier that reads the surrounding code can,
+which is precisely the thing the no-AI path removes.
+
+The **armored-block class was a defect.** One credential spanning thirty lines was
+emitted as nineteen findings. §3 of this report criticises gitleaks for reporting
+one fixture eleven times without dedup; Klarion was doing the same thing, worse.
+It inflated every number in this section and cost one model call per line.
 
 ### The AI configuration on the same corpora
 
-`symfony`, `--ai-mode on` (`claude-cli`, haiku): **45 candidates → 0 findings**,
-1,074 suppressed. The adjudicator correctly rejected every one.
+The first attempt at this table failed on the benchmark machine: a local
+`claude-mem` `SessionEnd` hook cancels nested `claude -p` invocations, so 16 of 21
+batches errored, and under `on_error = "fail_open"` the unverified candidates were
+retained and inflated next.js to 385 findings. That figure was a transport
+artifact and is not cited here.
 
-The other three corpora could not be measured cleanly on the benchmark machine: a
-local `claude-mem` `SessionEnd` hook cancels nested `claude -p` invocations, so 16
-of 21 batches failed with `claude-cli: exit status 1`. With `on_error =
-"fail_open"` those unverified candidates are retained, which inflated next.js to
-385 findings — **that number is a transport artifact and must not be cited.**
-Re-run on a machine with a direct API key to complete the table.
+Re-measured 2026-08-08 in a clean Linux environment with no such hook,
+`on_error = "fail"` so that no run can contain an unadjudicated candidate, and the
+corpora run **sequentially** — four in parallel put roughly sixteen concurrent
+adjudications against one account and every corpus aborted at batch ~35 on rate
+limiting. The entropy-only baseline was reproduced exactly first (930 / 367 / 174
+/ 45 findings, 4,469 / 1,482 / 1,306 / 1,029 suppressed), so the two columns below
+are directly comparable.
+
+| repo | candidates (no AI) | findings (AI on) | removed |
+|---|---:|---:|---:|
+| spring-boot | 930 | **272** | 71% |
+| terraform | 367 | **26** | 93% |
+| next.js | 174 | **10** | 94% |
+| symfony | 45 | **8** | 82% |
+| **total** | **1,516** | **316** | **79%** |
+
+Adjudication removes 79% of what the pre-filter emits on code it has never seen.
+It resolves the identifier class outright: terraform's Go struct fields and env
+var names, next.js's compiled Babel output. What survives is 316 findings across
+**34 files**, and almost all of it is the armored-block defect — spring-boot's 272
+are 18 private keys at roughly 19 findings each, every one under `src/test`,
+`dockerTest`, `smoke-test` or `testFixtures`.
+
+Two caveats on these numbers.
+
+**Transport affects the verdict.** symfony scores 45 → 0 when `claude -p` runs with
+its default tool access and 45 → 8 with tools disabled. The agentic loop reads the
+surrounding files and correctly identifies test fixtures, at four to fifteen times
+the latency and many turns per candidate. The table above is the tool-free
+configuration, which is what ships. The earlier 45 → 0 was the agentic one.
+
+**These predate the collapse pass.** Armored blocks are now merged into a single
+finding before adjudication, which on the same corpora takes the entropy-only
+output from 1,516 to **263** with no model calls at all — spring-boot 930 → 114,
+terraform 367 → 80, next.js 174 → 24, symfony unchanged at 45. The AI column has
+not been re-measured since that landed. It will improve, by roughly the factor the
+per-line inflation accounts for, but **no re-measured figure exists yet and none
+should be quoted.**
 
 ### Conclusion
 
@@ -364,3 +414,9 @@ never have been presented as a general result. Documentation, marketing copy, an
 the GitHub Action now state that a model is required. The pre-filter's purpose is
 to keep AI token cost low by shrinking the candidate set — it was never an
 independent detector, and it does not behave like one.
+
+Adjudication does the job it is there for: 79% of the pre-filter's output removed
+on four unseen ecosystems, and the identifier class — the one entropy cannot
+solve in principle — resolved. It does not reach zero. The gap is test-fixture key
+material, and the measurement that found it also found the per-line reporting
+defect that was inflating it.

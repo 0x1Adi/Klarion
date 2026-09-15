@@ -1,23 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 250" width="1000" height="250" role="img" aria-label="Klarion. Secret scanning without the false alarms. Zero false positives across 3,700 files, 1.00 file precision, 0.61 seconds to scan Rails.">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 250" width="1000" height="250" role="img" aria-label="Klarion. Entropy finds the candidates, a model decides which are real. 79 percent of pre-filter false positives removed across four unseen ecosystems, 1.00 file precision on the leaky-repo ground truth, 59,754 files measured.">
   <rect width="1000" height="250" rx="16" fill="#14110f"/>
 
   <rect x="58" y="44" width="32" height="32" rx="10" fill="#ff4d8b"/>
   <text x="106" y="78" font-family="Helvetica, Arial, sans-serif" font-size="48" font-weight="600" fill="#faf7f2">Klarion</text>
 
-  <text x="58" y="128" font-family="Helvetica, Arial, sans-serif" font-size="19" fill="#c7bfb5">Secret scanning without the false alarms.</text>
-  <text x="58" y="156" font-family="Helvetica, Arial, sans-serif" font-size="15" fill="#968d83">An AI reads the surrounding code and decides what is really a secret.</text>
+  <text x="58" y="128" font-family="Helvetica, Arial, sans-serif" font-size="19" fill="#c7bfb5">Entropy finds the candidates. A model decides which are real.</text>
+  <text x="58" y="156" font-family="Helvetica, Arial, sans-serif" font-size="15" fill="#968d83">The pre-filter is not a detector. Klarion requires an API key.</text>
 
   <line x1="58" y1="184" x2="942" y2="184" stroke="#332d28" stroke-width="1"/>
 
-  <text x="58" y="226" font-family="Helvetica, Arial, sans-serif" font-size="32" font-weight="600" fill="#a4d4c5">0</text>
-  <text x="92" y="217" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">false positives across</text>
-  <text x="92" y="233" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">3,700 files of real code</text>
+  <text x="58" y="226" font-family="Helvetica, Arial, sans-serif" font-size="32" font-weight="600" fill="#a4d4c5">79%</text>
+  <text x="136" y="217" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">of pre-filter noise removed,</text>
+  <text x="136" y="233" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">on four unseen ecosystems</text>
 
-  <text x="360" y="226" font-family="Helvetica, Arial, sans-serif" font-size="32" font-weight="600" fill="#a4d4c5">1.00</text>
-  <text x="450" y="217" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">file precision on the</text>
-  <text x="450" y="233" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">leaky-repo ground truth</text>
+  <text x="400" y="226" font-family="Helvetica, Arial, sans-serif" font-size="32" font-weight="600" fill="#a4d4c5">1.00</text>
+  <text x="478" y="217" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">file precision on the</text>
+  <text x="478" y="233" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">leaky-repo ground truth</text>
 
-  <text x="690" y="226" font-family="Helvetica, Arial, sans-serif" font-size="32" font-weight="600" fill="#a4d4c5">0.61s</text>
-  <text x="800" y="217" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">to scan Rails at 51 MB,</text>
-  <text x="800" y="233" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">fastest of the five tested</text>
+  <text x="690" y="226" font-family="Helvetica, Arial, sans-serif" font-size="32" font-weight="600" fill="#a4d4c5">59,754</text>
+  <text x="822" y="217" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">files measured, in Java,</text>
+  <text x="822" y="233" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">Go, TypeScript and PHP</text>
 </svg>
