@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Rate limits no longer abort a scan.** `Retry-After` was parsed with
+  `strconv.Atoi`, so a fractional value — Groq sends `20.3775` — was discarded
+  and the scan retried after 1s and 2s against a window with 20 seconds left to
+  run. Every attempt was refused and the batch failed. Fractional seconds now
+  parse, the delay is also read out of the error payload when the header is
+  absent, retries go from 3 to 5, and the ceiling from 30s to 90s. A free-tier
+  token-per-minute limit is a wait, not a failure.
+
+### Fixed
+
 - **Model output with more than one JSON object no longer kills the scan.**
   `parseBatchResults` sliced from the first `{` to the last `}`, so two
   concatenated objects became `{...},{...}` and failed with `invalid character

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strconv"
 	"time"
 )
@@ -16,9 +17,9 @@ import (
 // a whole batch its verdicts — with on_error="keep" the scan still succeeds and
 // the findings come back unverified, which reads like a clean run but is not.
 const (
-	httpAttempts    = 3                // initial attempt + 2 retries
+	httpAttempts    = 5                // initial attempt + 4 retries
 	maxResponseSize = 1 << 20          // plenty for a batch verdict document
-	maxRetryBackoff = 30 * time.Second // ceiling for a server-provided Retry-After
+	maxRetryBackoff = 90 * time.Second // ceiling for a server-provided Retry-After
 )
 
 // httpBackoff is the base delay; attempt N waits base * 2^(N-1). A var so
@@ -79,6 +80,9 @@ func postJSON(ctx context.Context, client *http.Client, provider, url string, bo
 		}
 		if retryableStatus(resp.StatusCode) {
 			lastErr = fmt.Errorf("%s: HTTP %d: %s", provider, resp.StatusCode, trimBody(raw))
+			if retryAfter == 0 {
+				retryAfter = retryAfterFromBody(raw)
+			}
 			lastRetryAfter = retryAfter
 			continue
 		}
@@ -119,8 +123,13 @@ func parseRetryAfter(v string) time.Duration {
 	if v == "" {
 		return 0
 	}
-	if secs, err := strconv.Atoi(v); err == nil && secs >= 0 {
-		return time.Duration(secs) * time.Second
+	// RFC 7231 specifies whole seconds, but providers send fractions: Groq
+	// replies "20.3775". strconv.Atoi rejected those, the hint was discarded,
+	// and the scan retried on the 1s/2s default backoff against a window that
+	// had 20 seconds left to run -- so every attempt was refused and the batch
+	// failed. ParseFloat accepts both forms.
+	if secs, err := strconv.ParseFloat(v, 64); err == nil && secs >= 0 {
+		return time.Duration(secs * float64(time.Second))
 	}
 	if t, err := http.ParseTime(v); err == nil {
 		if d := time.Until(t); d > 0 {
@@ -128,6 +137,28 @@ func parseRetryAfter(v string) time.Duration {
 		}
 	}
 	return 0
+}
+
+// retryAfterFromBody digs the wait out of a rate-limit payload when the header
+// is missing. Providers that omit Retry-After often still state the delay in
+// the error message ("Please try again in 20.3775s"), and honouring it is the
+// difference between a scan that finishes and one that dies on a free tier.
+var retryAfterBody = regexp.MustCompile(`try again in ([0-9]+(?:\.[0-9]+)?)\s*(ms|s\b)`)
+
+func retryAfterFromBody(b []byte) time.Duration {
+	m := retryAfterBody.FindSubmatch(b)
+	if m == nil {
+		return 0
+	}
+	n, err := strconv.ParseFloat(string(m[1]), 64)
+	if err != nil || n < 0 {
+		return 0
+	}
+	unit := time.Second
+	if string(m[2]) == "ms" {
+		unit = time.Millisecond
+	}
+	return time.Duration(n * float64(unit))
 }
 
 // trimBody bounds an error message so a provider's HTML error page does not

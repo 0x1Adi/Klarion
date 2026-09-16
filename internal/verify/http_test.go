@@ -243,3 +243,55 @@ func TestApplyParallelBatchesKeepVerdictsAligned(t *testing.T) {
 		t.Errorf("peak concurrency = %d; batches did not run in parallel", peak)
 	}
 }
+
+// TestParseRetryAfterFractional guards the fix for a rate-limit failure seen
+// against Groq: the header value was "20.3775", strconv.Atoi rejected it, the
+// hint was dropped, and the scan retried after 1s and 2s against a window with
+// 20 seconds left -- so every attempt was refused and the batch died.
+func TestParseRetryAfterFractional(t *testing.T) {
+	cases := map[string]time.Duration{
+		"":        0,
+		"20":      20 * time.Second,
+		"20.3775": 20*time.Second + 377500*time.Microsecond,
+		"0.5":     500 * time.Millisecond,
+		"0":       0,
+		"-3":      0,
+		"soon":    0,
+	}
+	for in, want := range cases {
+		if got := parseRetryAfter(in); got != want {
+			t.Errorf("parseRetryAfter(%q) = %v, want %v", in, got, want)
+		}
+	}
+}
+
+// TestRetryAfterFromBody covers providers that state the delay in the error
+// payload instead of the header.
+func TestRetryAfterFromBody(t *testing.T) {
+	groq := []byte(`{"error":{"message":"Rate limit reached for model ` +
+		"`openai/gpt-oss-20b`" +
+		` on tokens per minute (TPM): Limit 8000, Used 7945, Requested 2772. Please try again in 20.3775s.","code":"rate_limit_exceeded"}}`)
+	if got := retryAfterFromBody(groq); got < 20*time.Second || got > 21*time.Second {
+		t.Errorf("retryAfterFromBody(groq) = %v, want ~20.38s", got)
+	}
+	if got := retryAfterFromBody([]byte("please try again in 250ms")); got != 250*time.Millisecond {
+		t.Errorf("ms form = %v, want 250ms", got)
+	}
+	if got := retryAfterFromBody([]byte("something else entirely")); got != 0 {
+		t.Errorf("no match = %v, want 0", got)
+	}
+}
+
+// TestBackoffHonoursServerHint: our own backoff must never shorten a longer
+// server-provided wait, and the ceiling must still bound a pathological value.
+func TestBackoffHonoursServerHint(t *testing.T) {
+	if got := backoffFor(2, 20*time.Second); got != 20*time.Second {
+		t.Errorf("backoffFor(2, 20s) = %v, want 20s", got)
+	}
+	if got := backoffFor(2, 0); got != httpBackoff {
+		t.Errorf("backoffFor(2, 0) = %v, want %v", got, httpBackoff)
+	}
+	if got := backoffFor(2, time.Hour); got != maxRetryBackoff {
+		t.Errorf("backoffFor(2, 1h) = %v, want the %v ceiling", got, maxRetryBackoff)
+	}
+}
