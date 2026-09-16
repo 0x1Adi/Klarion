@@ -3,9 +3,11 @@ package verify
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/0x1Adi/Klarion/internal/config"
 	"github.com/0x1Adi/Klarion/internal/finding"
@@ -184,7 +186,13 @@ func Apply(ctx context.Context, v Verifier, cfg *config.AIConfig, findings []fin
 	var (
 		mu       sync.Mutex
 		firstErr error
+		done     int
 	)
+	// Adjudication is the slow stage and it produced no output at all: a local
+	// model can spend half an hour on one repository looking identical to a
+	// hang. Progress goes to stderr so it never contaminates a report on stdout.
+	total := len(ranges)
+	started := time.Now()
 	work := make(chan batchRange)
 	var wg sync.WaitGroup
 
@@ -219,6 +227,10 @@ func Apply(ctx context.Context, v Verifier, cfg *config.AIConfig, findings []fin
 						chunk[i].Verdict = verdicts[i]
 					}
 				}
+				mu.Lock()
+				done++
+				reportProgress(done, total, started)
+				mu.Unlock()
 			}
 		}()
 	}
@@ -233,6 +245,28 @@ func Apply(ctx context.Context, v Verifier, cfg *config.AIConfig, findings []fin
 	wg.Wait()
 
 	return firstErr
+}
+
+// Progress is where adjudication progress is written. A var so a caller can
+// silence it (tests) or redirect it; nil means no reporting.
+var Progress io.Writer = os.Stderr
+
+// reportProgress emits a single rewritten line: batches done, percentage, and
+// an estimate built from observed throughput rather than a guess.
+func reportProgress(done, total int, started time.Time) {
+	if Progress == nil || total == 0 {
+		return
+	}
+	elapsed := time.Since(started)
+	msg := fmt.Sprintf("klarion: adjudicating %d/%d batches (%d%%)", done, total, done*100/total)
+	if done > 0 && done < total {
+		per := elapsed / time.Duration(done)
+		msg += fmt.Sprintf(", ~%s left", (per * time.Duration(total-done)).Round(time.Second))
+	}
+	fmt.Fprintf(Progress, "\r%-72s", msg)
+	if done == total {
+		fmt.Fprintf(Progress, "\n")
+	}
 }
 
 // buildRequest sanitizes one finding into a verifier Request. index is the

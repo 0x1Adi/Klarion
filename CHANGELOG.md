@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Adjudication reports progress.** The slow stage produced no output at all,
+  so a local model spending half an hour on one repository was indistinguishable
+  from a hang. Batches done, percentage and an estimate from observed throughput
+  now go to stderr, where they cannot contaminate a report on stdout.
+
 ### Fixed
 
 - **Rate limits no longer abort a scan.** `Retry-After` was parsed with
