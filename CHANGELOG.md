@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   parse, the delay is also read out of the error payload when the header is
   absent, retries go from 3 to 5, and the ceiling from 30s to 90s. A free-tier
   token-per-minute limit is a wait, not a failure.
+- **The request timeout now bounds one attempt, not the whole retry sequence.**
+  `ai.timeout_seconds` wrapped every retry and every backoff wait together, so
+  honouring a 20s Retry-After inside the 45s default left nothing for the retry
+  and the batch died with `context deadline exceeded`. Each HTTP round trip gets
+  the timeout; an overall ceiling derived from it still bounds the scan.
 
 ### Fixed
 

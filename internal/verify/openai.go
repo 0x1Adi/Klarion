@@ -110,9 +110,6 @@ func (o *openaiVerifier) Verify(ctx context.Context, batch []Request) ([]finding
 		return nil, fmt.Errorf("openai: marshal request: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, o.timeout)
-	defer cancel()
-
 	header := http.Header{}
 	header.Set("content-type", "application/json")
 	// Ollama / some local gateways require no auth; only send a bearer when set.
@@ -120,7 +117,7 @@ func (o *openaiVerifier) Verify(ctx context.Context, batch []Request) ([]finding
 		header.Set("Authorization", "Bearer "+o.apiKey)
 	}
 
-	resp, err := postJSON(ctx, o.client, "openai", o.baseURL+"/chat/completions", raw, header)
+	resp, err := postJSON(ctx, o.client, "openai", o.baseURL+"/chat/completions", raw, header, o.timeout)
 	if err != nil {
 		return nil, err
 	}

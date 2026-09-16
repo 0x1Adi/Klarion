@@ -38,7 +38,19 @@ type httpResponse struct {
 // bounds total wall-clock across retries.
 //
 // header is applied to each attempt; provider is used only in error messages.
-func postJSON(ctx context.Context, client *http.Client, provider, url string, body []byte, header http.Header) (*httpResponse, error) {
+//
+// perAttempt bounds a single HTTP round trip, NOT the whole sequence. Wrapping
+// the sequence was wrong: honouring a 20s Retry-After inside a 45s budget left
+// nothing for the retry itself, so a rate-limited scan died with "context
+// deadline exceeded" instead of waiting out the window. An overall ceiling is
+// still derived below so a scan cannot hang indefinitely.
+func postJSON(ctx context.Context, client *http.Client, provider, url string, body []byte, header http.Header, perAttempt time.Duration) (*httpResponse, error) {
+	if perAttempt > 0 {
+		overall := perAttempt*time.Duration(httpAttempts) + maxRetryBackoff*time.Duration(httpAttempts-1)
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, overall)
+		defer cancel()
+	}
 	var (
 		lastErr        error
 		lastRetryAfter time.Duration // server-provided hint from the previous attempt
@@ -54,8 +66,17 @@ func postJSON(ctx context.Context, client *http.Client, provider, url string, bo
 			}
 		}
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+		attemptCtx := ctx
+		var attemptCancel context.CancelFunc
+		if perAttempt > 0 {
+			attemptCtx, attemptCancel = context.WithTimeout(ctx, perAttempt)
+		}
+
+		req, err := http.NewRequestWithContext(attemptCtx, http.MethodPost, url, bytes.NewReader(body))
 		if err != nil {
+			if attemptCancel != nil {
+				attemptCancel()
+			}
 			// A malformed URL will not fix itself on the next attempt.
 			return nil, fmt.Errorf("%s: build request: %w", provider, err)
 		}
@@ -63,7 +84,11 @@ func postJSON(ctx context.Context, client *http.Client, provider, url string, bo
 
 		resp, err := client.Do(req)
 		if err != nil {
-			// A cancelled context is the caller giving up, not a blip.
+			if attemptCancel != nil {
+				attemptCancel()
+			}
+			// The OUTER context being done is the caller giving up. A per-attempt
+			// deadline is just a slow response, and is worth another try.
 			if ctx.Err() != nil {
 				return nil, fmt.Errorf("%s: %w", provider, ctx.Err())
 			}
@@ -74,6 +99,9 @@ func postJSON(ctx context.Context, client *http.Client, provider, url string, bo
 		raw, readErr := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
 		retryAfter := parseRetryAfter(resp.Header.Get("Retry-After"))
 		resp.Body.Close()
+		if attemptCancel != nil {
+			attemptCancel()
+		}
 		if readErr != nil {
 			lastErr, lastRetryAfter = fmt.Errorf("%s: read response: %w", provider, readErr), retryAfter
 			continue

@@ -36,7 +36,7 @@ func TestPostJSONRetriesTransientFailures(t *testing.T) {
 			}))
 			defer srv.Close()
 
-			resp, err := postJSON(context.Background(), srv.Client(), "test", srv.URL, []byte(`{}`), http.Header{})
+			resp, err := postJSON(context.Background(), srv.Client(), "test", srv.URL, []byte(`{}`), http.Header{}, 0)
 			if err != nil {
 				t.Fatalf("postJSON: %v", err)
 			}
@@ -60,7 +60,7 @@ func TestPostJSONDoesNotRetryClientErrors(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	resp, err := postJSON(context.Background(), srv.Client(), "test", srv.URL, []byte(`{}`), http.Header{})
+	resp, err := postJSON(context.Background(), srv.Client(), "test", srv.URL, []byte(`{}`), http.Header{}, 0)
 	if err != nil {
 		t.Fatalf("postJSON: %v", err)
 	}
@@ -83,7 +83,7 @@ func TestPostJSONGivesUpAfterMaxAttempts(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	if _, err := postJSON(context.Background(), srv.Client(), "test", srv.URL, []byte(`{}`), http.Header{}); err == nil {
+	if _, err := postJSON(context.Background(), srv.Client(), "test", srv.URL, []byte(`{}`), http.Header{}, 0); err == nil {
 		t.Fatal("want an error when every attempt fails")
 	}
 	if got := atomic.LoadInt32(&calls); got != httpAttempts {
@@ -109,7 +109,7 @@ func TestPostJSONResendsBodyOnRetry(t *testing.T) {
 	defer srv.Close()
 
 	payload := `{"hello":"world"}`
-	if _, err := postJSON(context.Background(), srv.Client(), "test", srv.URL, []byte(payload), http.Header{}); err != nil {
+	if _, err := postJSON(context.Background(), srv.Client(), "test", srv.URL, []byte(payload), http.Header{}, 0); err != nil {
 		t.Fatal(err)
 	}
 	for i, b := range bodies {
@@ -293,5 +293,39 @@ func TestBackoffHonoursServerHint(t *testing.T) {
 	}
 	if got := backoffFor(2, time.Hour); got != maxRetryBackoff {
 		t.Errorf("backoffFor(2, 1h) = %v, want the %v ceiling", got, maxRetryBackoff)
+	}
+}
+
+// TestPerAttemptTimeoutSurvivesBackoff: a slow first response must not consume
+// the budget for the retry. Wrapping the whole retry sequence in one timeout
+// meant a provider asking for a 20s wait inside a 45s budget failed with
+// "context deadline exceeded" instead of waiting and succeeding.
+func TestPerAttemptTimeoutSurvivesBackoff(t *testing.T) {
+	old := httpBackoff
+	httpBackoff = 10 * time.Millisecond
+	defer func() { httpBackoff = old }()
+
+	var n int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if atomic.AddInt32(&n, 1) == 1 {
+			// First attempt stalls past its own per-attempt deadline.
+			time.Sleep(120 * time.Millisecond)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer srv.Close()
+
+	resp, err := postJSON(context.Background(), srv.Client(), "test", srv.URL,
+		[]byte(`{}`), http.Header{}, 40*time.Millisecond)
+	if err != nil {
+		t.Fatalf("want the retry to succeed after a timed-out first attempt, got %v", err)
+	}
+	if resp.status != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.status)
+	}
+	if got := atomic.LoadInt32(&n); got < 2 {
+		t.Fatalf("attempts = %d, want at least 2", got)
 	}
 }

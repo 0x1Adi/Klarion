@@ -339,15 +339,12 @@ func (a *anthropicVerifier) Verify(ctx context.Context, batch []Request) ([]find
 		return nil, fmt.Errorf("anthropic: marshal request: %w", err)
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, a.timeout)
-	defer cancel()
-
 	header := http.Header{}
 	header.Set("x-api-key", a.apiKey)
 	header.Set("anthropic-version", anthropicVersion)
 	header.Set("content-type", "application/json")
 
-	resp, err := postJSON(ctx, a.client, "anthropic", a.baseURL+"/v1/messages", raw, header)
+	resp, err := postJSON(ctx, a.client, "anthropic", a.baseURL+"/v1/messages", raw, header, a.timeout)
 	if err != nil {
 		return nil, err
 	}
