@@ -47,6 +47,9 @@ type ScanConfig struct {
 	Workers        int      `toml:"workers"`
 	FollowSymlinks bool     `toml:"follow_symlinks"`
 	IgnorePaths    []string `toml:"ignore_paths"` // globs; matched files are not scanned at all
+	// MaxDecodeDepth: how many layers of base64/hex/percent/\u encoding are
+	// decoded and rescanned. 0 disables decoding. Default 2, capped at 5.
+	MaxDecodeDepth int `toml:"max_decode_depth"`
 }
 
 type EntropyConfig struct {
@@ -180,6 +183,7 @@ func Default() *Config {
 	c := &Config{
 		Scan: ScanConfig{
 			MaxFileSizeBytes: 1 << 20,
+			MaxDecodeDepth:   2,
 			IgnorePaths: []string{
 				// Klarion's own state. Both files are full of hex digests
 				// (verdict-cache keys, baseline fingerprints) which read as
@@ -304,6 +308,7 @@ func (c *Config) normalize() {
 	if c.Scan.MaxFileSizeBytes <= 0 {
 		c.Scan.MaxFileSizeBytes = 1 << 20
 	}
+	c.Scan.MaxDecodeDepth = min(max(c.Scan.MaxDecodeDepth, 0), 5)
 	if c.AI.MaxBatch <= 0 {
 		c.AI.MaxBatch = 8
 	}

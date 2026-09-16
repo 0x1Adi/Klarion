@@ -125,7 +125,8 @@ inputs:
       What to scan. "auto" (default) follows the industry convention: on a
       pull_request it scans only the commits the PR adds, and on push/schedule/
       manual runs it scans the whole tree. "diff" forces range scanning,
-      "full" forces a working-tree scan, "history" audits all reachable commits.
+      "full" forces a working-tree scan, "history" audits every branch, tag and
+      merge commit (a shallow checkout is deepened first).
     required: false
     default: "auto"
   base:
@@ -293,6 +294,15 @@ runs:
               echo "::warning::could not fetch base commit '$base' — check out with fetch-depth: 0 for diff scanning. Falling back to a full-tree scan."
               mode="full"
             fi
+          fi
+        fi
+
+        if [ "$mode" = "history" ] && [ "$(git rev-parse --is-shallow-repository 2>/dev/null)" = "true" ]; then
+          # A history audit of the default shallow checkout reads one commit and
+          # passes. Deepen it and fetch every branch, so --all means all.
+          echo "::notice::shallow clone; fetching full history and all branches for the history scan."
+          if ! git fetch --quiet --tags --unshallow origin '+refs/heads/*:refs/remotes/origin/*' >/dev/null 2>&1; then
+            echo "::warning::could not unshallow the clone, so the history scan covers only the fetched commits. Check out with fetch-depth: 0."
           fi
         fi
 

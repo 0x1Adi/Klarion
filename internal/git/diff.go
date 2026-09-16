@@ -28,6 +28,12 @@ type FileDiff struct {
 // positions by walking the body line by line.
 var hunkHeaderRe = regexp.MustCompile(`^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@`)
 
+// combinedHeaderRe captures a combined-diff hunk header for a merge with N
+// parents: N+1 '@', one -old range per parent, then the +new range.
+//
+//	@@@ -1,2 -1,2 +1,3 @@@
+var combinedHeaderRe = regexp.MustCompile(`^(@{3,}) (?:-\d+(?:,\d+)? )+\+(\d+)(?:,\d+)? @{3,}`)
+
 // ParseUnifiedDiff parses `git diff`/`git log -p` output into per-file added
 // lines. It is deliberately tolerant: git emits several path-declaration forms
 // (rename, new/deleted file, mode changes) and interleaves them with hunks, so
@@ -42,6 +48,7 @@ func ParseUnifiedDiff(diff string) []FileDiff {
 	newLine := 0      // next new-file line number to assign
 	inHunk := false   // whether we are inside a hunk body
 	binary := false   // current file is binary; drop its (empty) diff
+	parents := 1      // marker columns per body line: 1, or N for a merge's combined diff
 
 	// flush commits the in-progress file to the result unless it is binary or
 	// produced no added lines (pure deletions, mode-only changes, renames).
@@ -64,6 +71,10 @@ func ParseUnifiedDiff(diff string) []FileDiff {
 	lines := strings.Split(diff, "\n")
 	for _, line := range lines {
 		switch {
+		case strings.HasPrefix(line, "diff --cc "), strings.HasPrefix(line, "diff --combined "):
+			// Merge commit (--cc). The header names the result path directly.
+			start(line[strings.IndexByte(line[5:], ' ')+6:])
+
 		case strings.HasPrefix(line, "diff --git "):
 			// New file section. Derive a provisional path from the header; the
 			// authoritative path is refined by a later +++/rename line, but the
@@ -106,18 +117,32 @@ func ParseUnifiedDiff(diff string) []FileDiff {
 			// line, so it is handled here before the '-' case below.
 
 		case strings.HasPrefix(line, "@@"):
-			m := hunkHeaderRe.FindStringSubmatch(line)
-			if m == nil {
-				inHunk = false
-				continue
+			startLine, cols := "", 1
+			if m := combinedHeaderRe.FindStringSubmatch(line); m != nil {
+				startLine, cols = m[2], len(m[1])-1
+			} else if m := hunkHeaderRe.FindStringSubmatch(line); m != nil {
+				startLine = m[1]
 			}
-			n, err := strconv.Atoi(m[1])
+			n, err := strconv.Atoi(startLine)
 			if err != nil {
 				inHunk = false
 				continue
 			}
-			newLine = n
+			newLine, parents = n, cols
 			inHunk = true
+
+		case inHunk && parents > 1:
+			// Combined diff: one marker column per parent. A '-' in any column
+			// means the line is not in the merge result. All '+' means the merge
+			// itself introduced it; that is the only content no parent's own
+			// commits already contributed.
+			if len(line) < parents || strings.ContainsRune(line[:parents], '-') {
+				continue
+			}
+			if strings.Count(line[:parents], "+") == parents && cur != nil {
+				cur.Added = append(cur.Added, detect.Line{Number: newLine, Text: line[parents:]})
+			}
+			newLine++
 
 		case !inHunk:
 			// Metadata line (index, mode, similarity, commit prose, etc.).

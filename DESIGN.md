@@ -158,7 +158,7 @@ Scan surfaces, and what each one is for:
 | `klarion scan [path]` | the working tree | local runs, CI on the default branch, audits |
 | `klarion git` | the staged index | the pre-commit hook |
 | `klarion git --base <rev>` | commits this branch adds, from the merge base | CI on a pull request |
-| `klarion git --history` | all reachable commits | one-off audits of past leaks |
+| `klarion git --history` | every ref (branches, tags, stash), including what merge commits introduce | one-off audits of past leaks |
 
 `--base` resolves through `git merge-base` rather than taking the base branch
 tip literally: if the base branch has moved on since the branch was cut, a

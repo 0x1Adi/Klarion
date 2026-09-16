@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Credential assignments no longer need entropy.** A literal bound to a
+  password, passphrase, secret, token or credential name is a candidate whatever
+  it looks like: `admin`, `pass123`, `hunter22`. Covered shapes: `=` `:` `:=`
+  `=>`, PHP `define('X', 'y')`, XML elements and attributes, netrc/esmtprc
+  `password value` pairs and `login('user', 'password')` calls. This replaces the
+  `generic-password-assignment` and `generic-secret-assignment` regex rules (same
+  IDs), which dropped these on an entropy floor, an 8-character minimum and a
+  substring stopword check (`UserPassword123` contains `password123`).
+  Placeholders now match the whole value only.
+- **Credential files are recognized by their own name.** `.pgpass`,
+  `.git-credentials`, `.htpasswd`, `secrets.yml`: each record in a data file whose
+  name is a credential word is a candidate (`credential-file-entry`). There is no
+  filename list.
+- **`url-credentials`**: `scheme://user:password@host` for any scheme, including
+  `@` inside the user or password.
+- **Values that span lines**: YAML block scalars, split XML elements, a quoted
+  value on the line after its key. Nearby `user=`/`host=`/`login=` fields reach
+  the verifier as `related`, so a FileZilla or netrc record is judged whole.
+- **Decode, then rescan.** base64, hex, percent-encoding and `\u` escapes that
+  decode to text are scanned again, up to `scan.max_decode_depth` (default 2, 0
+  disables). The verifier gets the decoded text as `decoded`.
+- **History scans cover every ref and merge commits.** `klarion git --history`
+  walks `--all` (branches, tags, stash) instead of HEAD only, and includes what a
+  merge itself introduced (`--cc`); `--no-merges` skipped those. A shallow clone
+  prints a warning, and the Action deepens one before a history scan.
+- Measured on candidates before adjudication: leaky-repo risk files reaching the
+  verifier 28/42 -> 42/42 (62 -> 89 candidates); Go standard library source
+  5,077 -> 5,042; Python 3.12 standard library 61 -> 21. Scan stage +10% on the
+  Go source tree.
+
 - **The verdict cache is written during a scan, not only at the end.** Flushing
   at `Close` meant a run killed by a rate limit, a daily token quota or Ctrl-C
   discarded every verdict it had already paid for — worst exactly when the cache

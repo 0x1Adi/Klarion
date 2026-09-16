@@ -20,7 +20,7 @@ package rules
 //
 // Severity policy: cloud/root creds, private keys and DB connection strings are
 // critical; scoped provider API tokens are high; publishable keys, JWTs and
-// generic assignments are medium (they leak often but are lower blast radius).
+// webhook URLs are medium (they leak often but are lower blast radius).
 
 import (
 	"regexp"
@@ -839,32 +839,10 @@ func Builtin() []Rule {
 		// ---------------------------------------------------------------
 		// Generic assignments & webhooks (entropy-gated to cut noise)
 		// ---------------------------------------------------------------
-		{
-			ID:          "generic-password-assignment",
-			Description: "Hardcoded password assignment",
-			Regex:       mc(`(?i)(?:password|passwd|pwd)["'\s]*[:=]["'\s]*([^\s"']{8,80})`),
-			SecretGroup: 1,
-			Keywords:    []string{"password", "passwd", "pwd"},
-			Entropy:     0.5,
-			Severity:    finding.SeverityMedium,
-			Tags:        []string{"generic"},
-			// Common documentation/placeholder values.
-			Allowlist: []*regexp.Regexp{
-				mc(`(?i)^(?:password|passwd|changeme|example|placeholder|your_?password|xxx+|<[^>]+>|\$\{[^}]+\}|null|none|true|false)$`),
-			},
-		},
-		{
-			ID:          "generic-secret-assignment",
-			Description: "Hardcoded secret/token/api-key assignment",
-			Regex:       mc(`(?i)(?:secret|token|api[_-]?key|apikey|access[_-]?key|auth)["'\s]*[:=]["'\s]*([A-Za-z0-9_\-+/=.]{16,80})`),
-			SecretGroup: 1,
-			Keywords:    []string{"secret", "token", "apikey", "api_key", "api-key", "access_key", "auth"},
-			// High floor so identifiers/UUID-like config keys don't match.
-			Entropy:   0.6,
-			Severity:  finding.SeverityMedium,
-			Tags:      []string{"generic"},
-			Allowlist: []*regexp.Regexp{mc(`(?i)^(?:your_?[a-z_]+|example|placeholder|changeme|xxx+|<[^>]+>|\$\{[^}]+\}|null|none|undefined)$`)},
-		},
+		// Password and secret assignments have no fixed format, so they are
+		// not regex rules: internal/detect/structural.go finds them by key name
+		// with no entropy floor and emits generic-password-assignment /
+		// generic-secret-assignment.
 		{
 			ID:          "generic-webhook-url",
 			Description: "Generic secret-bearing webhook URL",

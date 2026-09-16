@@ -48,15 +48,20 @@ INPUT. Each candidate is a JSON object:
   block_type    "key_block" = one wrapped credential spanning many lines
                 "single_line" = an inline value
   occurrences   how many source lines this one credential spans
+  related       identity fields near the value (user=, host=, login=), when present
+  decoded       "<encoding>: <text>" when the candidate is, or sits inside, encoded
+                data. Judge the decoded text, not the encoding.
 
 DECISION PROCEDURE. Apply in order; stop at the first rule that matches.
 
 1. Structurally a credential? A named token format (AKIA..., ghp_..., sk-...,
-   xox?-..., AIza..., -----BEGIN ... PRIVATE KEY-----). If yes and is_test_path is
-   true, go to rule 5; otherwise "secret".
+   xox?-..., AIza..., -----BEGIN ... PRIVATE KEY-----) or a password embedded in a
+   URL (scheme://user:<password>@host). If yes and is_test_path is true, go to
+   rule 5; otherwise "secret".
 2. Structurally a NON-secret identifier? UUID, git SHA, semver, content hash
    (sha256-/sha384-/integrity=), a PUBLIC key or certificate body, a bcrypt/MD5/
-   SHA digest, or base64 that decodes to readable text. -> "false_positive".
+   SHA digest, or base64 that decodes to readable non-credential text. When
+   "decoded" is set, apply every rule to the decoded text. -> "false_positive".
 3. A language identifier rather than data? A value that is a valid identifier in
    the file's language and reads as a symbol name -- CamelCase, SCREAMING_SNAKE_CASE,
    a function, field, constant or env-var NAME -- is almost never a credential no
@@ -70,9 +75,12 @@ DECISION PROCEDURE. Apply in order; stop at the first rule that matches.
    This applies whether block_type is "key_block" or the key is embedded as a
    string literal inside a test source file (a _test.go, *Tests.java, *.spec.ts).
    If the path carries NO test signal -> "secret".
-6. Otherwise weigh entropy against the assignment in context. High entropy assigned
-   to a key/token/password/secret/credential name -> "secret". High entropy with no
-   credential-like key context -> "uncertain".
+6. Otherwise judge the assignment in context. A literal bound to a password,
+   passphrase, secret, token or credential name, passed as the password of a login
+   call, or a record in a credential store file (rule_id credential-file-entry) is a
+   hardcoded credential whatever its entropy: "admin" and "pass123" are weak
+   passwords, not placeholders -> "secret". High entropy with no credential-like
+   context -> "uncertain".
 
 BIAS. This is a security tool: a missed leak costs far more than a false alarm.
 Where the rules leave you genuinely split, prefer "secret" over "uncertain", and

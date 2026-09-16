@@ -508,3 +508,68 @@ func TestHasRevision(t *testing.T) {
 		}
 	})
 }
+
+// History means every ref: a leak on an unmerged branch is pushed and public,
+// and a merge can introduce content neither parent had.
+func TestScanHistoryAllRefsAndMerges(t *testing.T) {
+	dir := newTestRepo(t)
+	ctx := context.Background()
+	commit := func(msg string) { gitInDir(t, dir, "commit", "-q", "-am", msg) }
+
+	writeFile(t, dir, "a.txt", "base\n")
+	gitInDir(t, dir, "add", "a.txt")
+	commit("base")
+
+	gitInDir(t, dir, "checkout", "-q", "-b", "leak")
+	writeFile(t, dir, "b.txt", "password = branch-only-leak\n")
+	gitInDir(t, dir, "add", "b.txt")
+	commit("unmerged branch")
+	gitInDir(t, dir, "checkout", "-q", "main")
+
+	gitInDir(t, dir, "checkout", "-q", "-b", "side")
+	writeFile(t, dir, "a.txt", "side\n")
+	commit("side")
+	gitInDir(t, dir, "checkout", "-q", "main")
+	writeFile(t, dir, "a.txt", "main\n")
+	commit("main")
+	merge := exec.Command("git", "merge", "-q", "side")
+	merge.Dir, merge.Env = dir, gitEnv
+	_ = merge.Run() // conflicts by design
+	writeFile(t, dir, "a.txt", "main\nside\nevil = merged-in-resolution\n")
+	gitInDir(t, dir, "add", "a.txt")
+	gitInDir(t, dir, "commit", "-q", "-m", "merge side")
+
+	withGitEnv(t, func() {
+		hunks, err := ScanHistory(ctx, dir, HistoryOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var branchLeak bool
+		var mergeLines []string
+		for _, h := range hunks {
+			for _, ln := range h.Lines {
+				branchLeak = branchLeak || ln.Text == "password = branch-only-leak"
+				if h.Commit.Message == "merge side" {
+					mergeLines = append(mergeLines, ln.Text)
+				}
+			}
+		}
+		if !branchLeak {
+			t.Error("history scan missed a commit that exists only on another branch")
+		}
+		if len(mergeLines) != 1 || mergeLines[0] != "evil = merged-in-resolution" {
+			t.Errorf("merge commit lines = %q, want only the line no parent had", mergeLines)
+		}
+		if IsShallow(ctx, dir) {
+			t.Error("full clone reported shallow")
+		}
+	})
+
+	shallow := filepath.Join(t.TempDir(), "shallow")
+	gitInDir(t, t.TempDir(), "clone", "-q", "--depth", "1", "file://"+dir, shallow)
+	withGitEnv(t, func() {
+		if !IsShallow(ctx, shallow) {
+			t.Error("depth-1 clone not reported shallow")
+		}
+	})
+}

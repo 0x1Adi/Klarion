@@ -145,6 +145,8 @@ func TestApplyRedactsWhenSendSecretFalse(t *testing.T) {
 		RuleID:  "generic-high-entropy",
 		Secret:  secret,
 		Context: "token = " + secret + "\nnext line",
+		Related: "user=root (line 2); note=" + secret,
+		Decoded: "base64: " + secret,
 	}}
 	cfg := &config.AIConfig{MaxBatch: 8, OnError: "keep", SendSecret: false, MaxContextLines: 5}
 
@@ -159,6 +161,30 @@ func TestApplyRedactsWhenSendSecretFalse(t *testing.T) {
 	}
 	if strings.Contains(seen.Context, secret) {
 		t.Errorf("raw secret leaked into context: %q", seen.Context)
+	}
+	if strings.Contains(seen.Related, secret) || strings.Contains(seen.Decoded, secret) {
+		t.Errorf("raw secret leaked into related/decoded: %q / %q", seen.Related, seen.Decoded)
+	}
+	if !strings.Contains(seen.Related, "user=root") {
+		t.Errorf("related identity dropped: %q", seen.Related)
+	}
+}
+
+// Related parts and decoded text are what let the model judge a split record
+// or an encoded value; with send_secret on they must arrive intact.
+func TestApplyPassesRelatedAndDecoded(t *testing.T) {
+	var seen Request
+	fv := &fakeVerifier{name: "fake", fn: func(r Request) finding.Verdict {
+		seen = r
+		return finding.Verdict{Status: finding.VerdictSecret}
+	}}
+	f := []finding.Finding{{RuleID: "generic-password-assignment", Secret: "NjllNWU5", Related: "User=root (line 11)", Decoded: "base64: 69e5e9"}}
+	cfg := &config.AIConfig{MaxBatch: 8, OnError: "keep", SendSecret: true}
+	if err := Apply(context.Background(), fv, cfg, f); err != nil {
+		t.Fatal(err)
+	}
+	if seen.Related != "User=root (line 11)" || seen.Decoded != "base64: 69e5e9" {
+		t.Errorf("related=%q decoded=%q", seen.Related, seen.Decoded)
 	}
 }
 

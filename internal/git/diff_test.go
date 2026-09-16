@@ -220,3 +220,26 @@ func TestPathFromDiffGit(t *testing.T) {
 		}
 	}
 }
+
+// A merge's combined diff (--cc) carries one marker column per parent. Only a
+// line that is new against every parent is content the merge itself added.
+func TestParseCombinedDiff(t *testing.T) {
+	diff := "diff --cc a.txt\n" +
+		"index 1111111,2222222..3333333\n" +
+		"--- a/a.txt\n" +
+		"+++ b/a.txt\n" +
+		"@@@ -1,2 -1,2 +1,3 @@@\n" +
+		" +main\n" +
+		"- gone-from-result\n" +
+		"+ side\n" +
+		"++evil = merged-in-resolution\n" +
+		"diff --git a/b.txt b/b.txt\n" +
+		"--- a/b.txt\n" +
+		"+++ b/b.txt\n" +
+		"@@ -0,0 +1 @@\n" +
+		"+plain = after-merge\n"
+	assertFileDiffs(t, ParseUnifiedDiff(diff), []FileDiff{
+		{Path: "a.txt", Added: []detect.Line{{Number: 3, Text: "evil = merged-in-resolution"}}},
+		{Path: "b.txt", Added: []detect.Line{{Number: 1, Text: "plain = after-merge"}}},
+	})
+}

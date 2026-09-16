@@ -86,6 +86,8 @@ type Finding struct {
 	EntropyBits float64  `json:"entropy_bits,omitempty"` // absolute H_α in bits
 	Severity    Severity `json:"severity"`
 	Context     string   `json:"-"` // surrounding lines, used by the AI verifier
+	Related     string   `json:"-"` // nearby identity fields (user=, host=) passed to the verifier
+	Decoded     string   `json:"-"` // "<encoding>: <text>" when the value is, or sits inside, encoded data
 	Commit      string   `json:"commit,omitempty"`
 	Author      string   `json:"author,omitempty"`
 	Email       string   `json:"email,omitempty"`

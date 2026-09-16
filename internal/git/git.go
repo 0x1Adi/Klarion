@@ -148,8 +148,8 @@ type HistoryHunk struct {
 	Lines  []detect.Line
 }
 
-// HistoryOptions bounds a history scan. The zero value scans the entire
-// reachable history of the current branch.
+// HistoryOptions bounds a history scan. The zero value scans the history
+// reachable from every ref: all branches, tags, remotes and the stash.
 type HistoryOptions struct {
 	MaxCommits int    // 0 = unbounded
 	Since      string // any git approxidate, e.g. "2 weeks ago"; "" = no bound
@@ -192,6 +192,13 @@ func MergeBase(ctx context.Context, dir, base, head string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// IsShallow reports whether dir is a shallow clone, whose history scan sees only
+// the fetched commits. Errors (old git, not a repo) read as "not shallow".
+func IsShallow(ctx context.Context, dir string) bool {
+	out, err := run(ctx, dir, "rev-parse", "--is-shallow-repository")
+	return err == nil && strings.TrimSpace(string(out)) == "true"
+}
+
 // HasRevision reports whether a revision is present in the local clone. CI
 // often checks out a shallow tree, so the base commit of a pull request may
 // simply not be there; callers use this to fall back to a full scan rather
@@ -216,9 +223,14 @@ const (
 // ScanHistory walks commit history and returns the added lines of each commit,
 // per file. We drive `git log -p` with -U0 (zero context) and --no-color so the
 // unified-diff parser sees only markers and content, and with a custom
-// --format so each commit is prefixed by a parseable header record. First-parent
-// is *not* forced: merges contribute their combined diffs like any other commit,
-// which is what an audit wants (a secret merged in is still a leak).
+// --format so each commit is prefixed by a parseable header record.
+//
+// Without a Range it walks --all refs: a secret pushed on a feature branch, a
+// tag or a stash is as leaked as one on main. Merge commits are included as
+// dense combined diffs (--cc), which show only lines that differ from every
+// parent -- a conflict resolution or an "evil merge" that introduces content no
+// parent had. Lines a merge merely brings in from one side were already
+// scanned in that side's own commits.
 func ScanHistory(ctx context.Context, dir string, opts HistoryOptions) ([]HistoryHunk, error) {
 	// The header is emitted as: RS hash US author US email US date US subject LF
 	format := recordSep + "%H" + fieldSep + "%an" + fieldSep + "%ae" +
@@ -228,7 +240,7 @@ func ScanHistory(ctx context.Context, dir string, opts HistoryOptions) ([]Histor
 		"-p",
 		"-U0",
 		"--no-color",
-		"--no-merges",
+		"--cc",
 		"--date=iso-strict",
 		"--format=" + format,
 	}
@@ -245,6 +257,8 @@ func ScanHistory(ctx context.Context, dir string, opts HistoryOptions) ([]Histor
 		// "--" terminates option parsing: even though the range is validated,
 		// a revision is data and must never be able to act as a flag.
 		args = append(args, opts.Range, "--")
+	} else {
+		args = append(args, "--all")
 	}
 	out, err := run(ctx, dir, args...)
 	if err != nil {

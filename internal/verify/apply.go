@@ -272,12 +272,14 @@ func reportProgress(done, total int, started time.Time) {
 // buildRequest sanitizes one finding into a verifier Request. index is the
 // candidate's position within its batch (the id the model echoes back).
 func buildRequest(index int, f *finding.Finding, cfg *config.AIConfig) Request {
-	secret := f.Secret
+	secret, related, decoded := f.Secret, f.Related, f.Decoded
 	ctxText := capContext(f.Context, cfg.MaxContextLines, f.Line)
 	if !cfg.SendSecret {
 		// Strict privacy: never let the raw value leave the process.
 		ctxText = finding.RedactInText(ctxText, f.Secret)
 		secret = finding.Redact(f.Secret)
+		related = finding.RedactInText(related, f.Secret)
+		decoded = finding.Redact(decoded)
 	}
 	return Request{
 		Index:       index,
@@ -291,6 +293,8 @@ func buildRequest(index int, f *finding.Finding, cfg *config.AIConfig) Request {
 		IsTestPath:  finding.IsTestPath(f.FilePath),
 		BlockType:   blockType(f),
 		Occurrences: max(f.Occurrences, 1),
+		Related:     related,
+		Decoded:     decoded,
 	}
 }
 

@@ -49,7 +49,7 @@ var nonProdDirs = map[string]bool{
 }
 
 // nonProdFileTokens mark a *file name* as a test or example artifact when they
-// appear as a whole token: "client_test.go", "api.spec.ts", "example.env".
+// appear as a whole token, e.g. "client_test.go", "api.spec.ts", "example.env".
 // Tokens are split on the separators real file names use, so "manifest.json"
 // and "latest.json" are not caught.
 var nonProdFileTokens = map[string]bool{

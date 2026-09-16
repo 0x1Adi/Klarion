@@ -232,3 +232,17 @@ func TestDefaultIgnoresEncodedBlobs(t *testing.T) {
 		}
 	}
 }
+
+func TestMaxDecodeDepth(t *testing.T) {
+	if got := Default().Scan.MaxDecodeDepth; got != 2 {
+		t.Errorf("default max_decode_depth = %d, want 2", got)
+	}
+	for in, want := range map[int]int{-1: 0, 0: 0, 3: 3, 99: 5} {
+		c := Default()
+		c.Scan.MaxDecodeDepth = in
+		c.normalize()
+		if c.Scan.MaxDecodeDepth != want {
+			t.Errorf("normalize(%d) = %d, want %d", in, c.Scan.MaxDecodeDepth, want)
+		}
+	}
+}

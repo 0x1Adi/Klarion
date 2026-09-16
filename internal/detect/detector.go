@@ -1,7 +1,9 @@
 // Package detect implements Klarion's fast detection pass: curated rules for
-// known secret formats plus a normalized Rényi-entropy sweep for generic
-// high-entropy material. Its output is a set of candidate findings that the
-// verification stage (internal/verify) adjudicates.
+// known secret formats, structural stages for credentials with no fixed format
+// (structural.go), decode-and-rescan for encoded material (decode.go), and a
+// normalized Rényi-entropy sweep for generic high-entropy strings. Its output is
+// a set of candidate findings that the verification stage (internal/verify)
+// adjudicates.
 package detect
 
 import (
@@ -34,9 +36,11 @@ type Line struct {
 
 // Detector is safe for concurrent use once constructed.
 type Detector struct {
-	cfg       *config.Config
-	rules     []rules.Rule
-	stopwords []string
+	cfg           *config.Config
+	rules         []rules.Rule
+	stopwords     []string
+	userStopwords []string
+	disabled      map[string]bool // also gates the structural stages by rule ID
 }
 
 // New builds a detector from the config: built-in rules (minus disabled ones)
@@ -73,7 +77,8 @@ func New(cfg *config.Config) (*Detector, error) {
 			Tags:        c.Tags,
 		})
 	}
-	return &Detector{cfg: cfg, rules: rs, stopwords: lowerAll(cfg.Stopwords())}, nil
+	return &Detector{cfg: cfg, rules: rs, stopwords: lowerAll(cfg.Stopwords()),
+		userStopwords: lowerAll(cfg.Allowlist.Stopwords), disabled: disabled}, nil
 }
 
 // Rules returns the active ruleset (for `klarion rules list`).
@@ -106,8 +111,43 @@ func (d *Detector) ScanContent(path string, content []byte) []finding.Finding {
 // are assembled from neighboring entries of the slice, so diff hunks produce
 // hunk-local context.
 func (d *Detector) ScanLines(path string, lines []Line) []finding.Finding {
+	out := d.scanLines(path, lines, 0)
+	if !credentialFile(path) {
+		return out
+	}
+	entries := d.credentialEntries(path, lines, out)
+	if len(entries) == 0 {
+		return out
+	}
+	replaced := make(map[int]bool, len(entries))
+	for _, e := range entries {
+		replaced[e.Line] = true
+	}
+	kept := out[:0]
+	for _, f := range out {
+		if !(f.RuleID == "generic-high-entropy" && replaced[f.Line]) {
+			kept = append(kept, f)
+		}
+	}
+	return append(kept, entries...)
+}
+
+// scanLines runs every per-line stage. depth counts decode layers, so decoded
+// text is itself decoded at most scan.max_decode_depth times.
+func (d *Detector) scanLines(path string, lines []Line, depth int) []finding.Finding {
 	var out []finding.Finding
 	seen := make(map[string]bool)
+	emit := func(f *finding.Finding) bool {
+		if f == nil || seen[f.Fingerprint] {
+			return false
+		}
+		seen[f.Fingerprint] = true
+		out = append(out, *f)
+		return true
+	}
+	quotedOnly := needsQuotes(path)
+	// pre holds spans claimed by a value that started on an earlier line.
+	pre := make(map[int][]span)
 
 	for i, ln := range lines {
 		if len(out) >= maxFindingsPerFile {
@@ -121,9 +161,9 @@ func (d *Detector) ScanLines(path string, lines []Line) []finding.Finding {
 			continue
 		}
 		lower := strings.ToLower(text)
+		covered := pre[i]
 
 		// Stage 1: curated rules.
-		var covered []span
 		for ri := range d.rules {
 			r := &d.rules[ri]
 			if !keywordHit(lower, r.Keywords) {
@@ -140,17 +180,53 @@ func (d *Detector) ScanLines(path string, lines []Line) []finding.Finding {
 				if !d.acceptRuleMatch(r, secret) {
 					continue
 				}
-				f := d.newFinding(path, lines, i, ln, r.ID, r.Description, r.Severity, r.Tags, secret, start, end)
-				if f == nil || seen[f.Fingerprint] {
-					continue
-				}
-				seen[f.Fingerprint] = true
+				// Claim the span even for a duplicate or allowlisted value, so a
+				// later stage cannot report it again under another rule.
+				emit(d.newFinding(path, lines, i, ln, r.ID, r.Description, r.Severity, r.Tags, secret, start, end))
 				covered = append(covered, span{m[0], m[1]})
-				out = append(out, *f)
 			}
 		}
 
-		// Stage 2: generic Rényi-entropy sweep.
+		// Stage 2: credential assignments, URL credentials, login calls.
+		for _, c := range d.structural(lines, i, text, lower, quotedOnly) {
+			if d.disabled[c.rule] || overlaps(pre[c.idx], c.start, c.end) || (c.idx == i && overlaps(covered, c.start, c.end)) {
+				continue
+			}
+			if f := d.newFinding(path, lines, c.idx, lines[c.idx], c.rule, c.desc, c.sev, c.tags, c.secret, c.start, c.end); f != nil {
+				if c.related {
+					f.Related = related(lines, c.idx, quotedOnly)
+				}
+				f.Decoded = decodeValue(c.secret)
+				emit(f)
+			}
+			if c.idx == i {
+				covered = append(covered, span{min(c.keyStart, c.start), c.end})
+			} else {
+				covered = append(covered, span{c.keyStart, len(text)})
+				pre[c.idx] = append(pre[c.idx], span{c.start, c.end})
+			}
+			for _, k := range c.coverLines {
+				pre[k] = append(pre[k], span{0, len(lines[k].Text)})
+			}
+		}
+
+		// Stage 3: decode encoded spans and rescan what they hide.
+		if depth < d.cfg.Scan.MaxDecodeDepth {
+			for _, sp := range decodeSpans(text) {
+				if overlaps(covered, sp.start, sp.end) {
+					continue
+				}
+				inner := d.decoded(path, lines, i, sp, depth)
+				for k := range inner {
+					emit(&inner[k])
+				}
+				if len(inner) > 0 {
+					covered = append(covered, span{sp.start, sp.end})
+				}
+			}
+		}
+
+		// Stage 4: generic Rényi-entropy sweep.
 		if !d.cfg.Entropy.Enabled {
 			continue
 		}
@@ -176,14 +252,9 @@ func (d *Detector) ScanLines(path string, lines []Line) []finding.Finding {
 			if score < threshold {
 				continue
 			}
-			f := d.newFinding(path, lines, i, ln, "generic-high-entropy",
+			emit(d.newFinding(path, lines, i, ln, "generic-high-entropy",
 				"High-entropy string (possible secret)", sev, []string{"generic"},
-				secret, tok.start, tok.end)
-			if f == nil || seen[f.Fingerprint] {
-				continue
-			}
-			seen[f.Fingerprint] = true
-			out = append(out, *f)
+				secret, tok.start, tok.end))
 			if len(out) >= maxFindingsPerFile {
 				break
 			}

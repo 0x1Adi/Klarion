@@ -499,6 +499,7 @@ error, which catches typos.
 max_file_size_bytes = 1048576      # 1 MiB, larger files are skipped
 workers = 0                        # 0 means runtime.NumCPU()
 follow_symlinks = false
+max_decode_depth = 2               # base64/hex/percent/\u layers decoded and rescanned, 0 disables
 ignore_paths = [                   # globs, matched files are never scanned
   ".git/**", "node_modules/**", "vendor/**", "dist/**",
   "*.min.js", "*.lock", "*.png", "*.pdf",

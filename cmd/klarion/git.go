@@ -161,6 +161,12 @@ func scanRange(ctx context.Context, p *pipeline, dir, rng string) ([]finding.Fin
 }
 
 func scanHistory(ctx context.Context, p *pipeline, dir string) ([]finding.Finding, int, error) {
+	if git.IsShallow(ctx, dir) {
+		// An audit of a shallow clone reads a handful of commits and exits 0.
+		// Nobody reads CI logs closely, so say it where it will be seen.
+		fmt.Fprintln(os.Stderr, "klarion: warning: shallow clone — history scan covers only the fetched commits. "+
+			"Fetch full history first (git fetch --unshallow; in CI, check out with fetch-depth: 0).")
+	}
 	return scanHunks(ctx, p, dir, git.HistoryOptions{MaxCommits: gitMaxCommits, Since: gitSince})
 }
 

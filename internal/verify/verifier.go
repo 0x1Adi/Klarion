@@ -35,6 +35,13 @@ type Request struct {
 	IsTestPath  bool   `json:"is_test_path"`
 	BlockType   string `json:"block_type"`  // "key_block" | "single_line"
 	Occurrences int    `json:"occurrences"` // lines the credential spans
+
+	// Related lists identity fields near the value (user=, host=, login=), so a
+	// record split across lines is judged whole.
+	Related string `json:"related,omitempty"`
+	// Decoded is "<encoding>: <text>" when the candidate is, or was found
+	// inside, encoded data. The model judges the decoded text.
+	Decoded string `json:"decoded,omitempty"`
 }
 
 // Verifier adjudicates a batch of candidates. Implementations must return
