@@ -420,3 +420,112 @@ on four unseen ecosystems, and the identifier class — the one entropy cannot
 solve in principle — resolved. It does not reach zero. The gap is test-fixture key
 material, and the measurement that found it also found the per-line reporting
 defect that was inflating it.
+
+## 13. Addendum — the AI configuration, measured
+
+*Added 2026-09-16. §12 established that the pre-filter alone does not generalize
+and left the AI column incomplete. This section completes it, on the current
+build, and states what the numbers do and do not support.*
+
+### Method
+
+Four repositories, four ecosystems, none used to develop any Klarion heuristic.
+Shallow clone at HEAD on 2026-09-15 — the corpora have moved since the 2026-08
+run, so candidate counts are not comparable across those dates.
+
+Each corpus was reduced to a **seeded 15% file-level sample** before scanning.
+Files are sampled whole, so block collapsing still sees complete key material,
+and the file list is sorted before shuffling because `os.walk` order is not
+stable across machines. `SEED=1729` reproduces the exact sample.
+
+Sampling is not a shortcut here. Establishing that adjudication removes most of
+the pre-filter's output does not require every candidate: at these counts the
+interval is already narrower than the difference being measured. §3 of this
+report uses a stratified sample for the same reason.
+
+| setting | value |
+|---|---|
+| provider / model | Groq, OpenAI-compatible, `openai/gpt-oss-20b` |
+| `reasoning_effort` | `medium` |
+| `max_batch` | 10 |
+| `max_context_lines` | 2 |
+| `max_concurrency` | 4 |
+| `on_error` | `fail` — no run may contain an unadjudicated candidate |
+| `min_confidence` | 0.6 |
+
+**These settings are part of the measurement, not just its cost.**
+`reasoning_effort` and `max_context_lines` change what the model sees and
+therefore what it decides. A different model, or the same model at a different
+effort, is a different experiment.
+
+### Result
+
+| corpus | ecosystem | candidates | findings (AI on) | removed | 95% CI |
+|---|---|---:|---:|---:|---|
+| spring-boot | Java | 25 | 7 | 72% | 54–90% |
+| terraform | Go / HCL | 21 | 2 | 90% | 78–100% |
+| next.js | TypeScript / JS | 6 | 0 | 100% | — |
+| symfony | PHP | 10 | 6 | 40% | 10–70% |
+| **pooled** | | **62** | **15** | **76%** | **65–86%** |
+
+**One number is publishable: adjudication removes 76% of the pre-filter's
+output, ±11 points.** The per-corpus figures are reported for completeness and
+should not be quoted individually — spring-boot's interval spans 54 to 90, and
+next.js has six candidates, where an interval is meaningless.
+
+### How "uncertain" is counted
+
+A verdict of `uncertain` is **kept**, and therefore counts as a finding against
+the tool in the table above. That is the deliberate safety policy — a model that
+cannot judge a candidate must not be allowed to suppress it — but it means the
+metric charges Klarion for every candidate the model declines to answer, not
+only for the ones it gets wrong. The number above is a floor, not an estimate of
+the model's accuracy.
+
+symfony demonstrates the cost. Before the fix below, five of its findings were a
+single base64-encoded PNG whose one line produced five candidates, every one
+returned `uncertain`. One image file cost that corpus roughly twenty points.
+
+### What the measurement found in Klarion
+
+The run was intended to measure the tool. It mostly exposed it. Every defect
+below was reachable only by pointing a real provider at real repositories at
+real volume, and every one would have reached a user:
+
+| # | defect | consequence |
+|---|---|---|
+| 1 | `parseBatchResults` sliced first `{` to last `}` | two objects became `{...},{...}`; scan aborted |
+| 2 | Verdicts emitted without the `results` wrapper | whole batch discarded |
+| 3 | `Retry-After` parsed with `strconv.Atoi` | fractional `20.3775` discarded; retried too early, every time |
+| 4 | Request timeout wrapped the whole retry sequence | honouring a 20s wait inside a 45s budget killed the batch |
+| 5 | An unanswerable batch was lost, not split | one bad generation cost ten candidates |
+| 6 | No progress output during adjudication | a half-hour scan was indistinguishable from a hang |
+| 7 | `reasoning_effort` never sent | a reasoning model billed its scratchpad; ~3x token use |
+| 8 | `*.base64` not ignored | an encoded image scanned as candidate secrets |
+
+Defects 1–5 were transport robustness, 6 was operability, 7 cost money, and 8
+was a detection gap. None were visible to the Go test suite, and none would have
+appeared against a stub.
+
+### Limitations
+
+**Small n.** 62 candidates pooled. The interval is honest but wide, and per-
+corpus numbers are not usable. Raising `SAMPLE` to 0.5 would take pooled n to
+roughly 250 (±6 points) and make the per-corpus column meaningful.
+
+**One model.** `openai/gpt-oss-20b` at `reasoning_effort=medium`. Nothing here
+establishes what Claude, GPT or a local model would score, and the README's
+recommendation of a hosted frontier model is not measured by this table.
+
+**Candidate counts are not ground truth.** This measures how much of the
+pre-filter's output adjudication removes. It does not measure recall: a
+candidate the pre-filter never generated cannot be recovered by the model, and
+§7's ranked miss list still applies.
+
+**No human audit of the survivors.** §3 audited every clean-corpus finding by
+hand. The 15 survivors here were inspected only by file and rule, not
+individually adjudicated by a person.
+
+**Corpora drift.** These are HEAD clones from 2026-09-15. Re-running later will
+not reproduce these counts exactly; the seed fixes the sample, not the upstream
+repositories.
