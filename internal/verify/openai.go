@@ -85,13 +85,37 @@ type openaiResponse struct {
 	} `json:"error"`
 }
 
-// Verify classifies the whole batch with a single chat/completions call using
-// JSON mode, then maps choices[0].message.content back to one Verdict per
-// request in order.
+// Verify classifies a batch, halving it and retrying when the provider cannot
+// produce a usable response for the batch as a whole.
+//
+// Splitting matters because the two ways a batch dies are both size-sensitive:
+// a model that emits unparseable JSON under json_object mode, and a response
+// truncated before the closing brace. Retrying the same oversized batch repeats
+// the failure; half of it usually succeeds. Splits are contiguous, so verdicts
+// still come back in request order.
 func (o *openaiVerifier) Verify(ctx context.Context, batch []Request) ([]finding.Verdict, error) {
 	if len(batch) == 0 {
 		return nil, nil
 	}
+	verdicts, err := o.verifyBatch(ctx, batch)
+	if err == nil || len(batch) == 1 {
+		return verdicts, err
+	}
+	mid := len(batch) / 2
+	left, lerr := o.Verify(ctx, batch[:mid])
+	if lerr != nil {
+		return nil, lerr
+	}
+	right, rerr := o.Verify(ctx, batch[mid:])
+	if rerr != nil {
+		return nil, rerr
+	}
+	return append(left, right...), nil
+}
+
+// verifyBatch is one chat/completions call for the whole batch, mapping
+// choices[0].message.content back to one Verdict per request in order.
+func (o *openaiVerifier) verifyBatch(ctx context.Context, batch []Request) ([]finding.Verdict, error) {
 
 	reqBody := openaiRequest{
 		Model: o.model,

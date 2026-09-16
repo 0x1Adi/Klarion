@@ -16,6 +16,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   parse, the delay is also read out of the error payload when the header is
   absent, retries go from 3 to 5, and the ceiling from 30s to 90s. A free-tier
   token-per-minute limit is a wait, not a failure.
+- **A batch the model cannot answer is split instead of lost.** Under JSON mode
+  a provider sometimes rejects its own output — Groq returns
+  `400 json_validate_failed` with an empty `failed_generation`. That is a
+  sampling failure, not a bad request, so it is now retried, and if the batch
+  still cannot be answered it is halved and each half retried. Splits are
+  contiguous, so verdicts stay in request order.
 - **The request timeout now bounds one attempt, not the whole retry sequence.**
   `ai.timeout_seconds` wrapped every retry and every backoff wait together, so
   honouring a 20s Retry-After inside the 45s default left nothing for the retry

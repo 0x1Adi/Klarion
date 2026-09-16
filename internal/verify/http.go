@@ -106,7 +106,7 @@ func postJSON(ctx context.Context, client *http.Client, provider, url string, bo
 			lastErr, lastRetryAfter = fmt.Errorf("%s: read response: %w", provider, readErr), retryAfter
 			continue
 		}
-		if retryableStatus(resp.StatusCode) {
+		if retryableStatus(resp.StatusCode) || retryableGenerationFailure(resp.StatusCode, raw) {
 			lastErr = fmt.Errorf("%s: HTTP %d: %s", provider, resp.StatusCode, trimBody(raw))
 			if retryAfter == 0 {
 				retryAfter = retryAfterFromBody(raw)
@@ -129,6 +129,22 @@ func retryableStatus(code int) bool {
 		return true
 	}
 	return code >= 500
+}
+
+// retryableGenerationFailure spots a 400 that is really a sampling failure
+// rather than a bad request. Under JSON mode a model sometimes emits nothing
+// parseable and the provider rejects its own output:
+//
+//	400 {"code":"json_validate_failed","failed_generation":""}
+//
+// The request is fine and the next attempt usually succeeds, so treating every
+// 400 as permanent throws away a batch for no reason.
+func retryableGenerationFailure(code int, body []byte) bool {
+	if code != http.StatusBadRequest {
+		return false
+	}
+	return bytes.Contains(body, []byte("json_validate_failed")) ||
+		bytes.Contains(body, []byte("failed_generation"))
 }
 
 // backoffFor returns the delay before the given attempt. A server-provided
