@@ -206,3 +206,29 @@ func TestDefaultIgnoresKlarionState(t *testing.T) {
 		}
 	}
 }
+
+// TestDefaultIgnoresEncodedBlobs: a base64-encoded binary is maximum entropy by
+// construction and never a credential. symfony's favicon.png.base64 produced
+// five candidates the model could only call "uncertain" -- and uncertain is
+// kept, so they landed in the report. The image-extension ignores miss these
+// because the encoding extension comes last.
+func TestDefaultIgnoresEncodedBlobs(t *testing.T) {
+	c := Default()
+	if err := c.compile(); err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	for _, p := range []string{
+		"src/Symfony/Component/ErrorHandler/Resources/assets/images/favicon.png.base64",
+		"assets/logo.b64",
+	} {
+		if !c.PathIgnored(p) {
+			t.Errorf("PathIgnored(%q) = false, want true", p)
+		}
+	}
+	// Ordinary source must still be scanned.
+	for _, p := range []string{"internal/config/config.go", "src/app/main.php"} {
+		if c.PathIgnored(p) {
+			t.Errorf("PathIgnored(%q) = true, want false", p)
+		}
+	}
+}

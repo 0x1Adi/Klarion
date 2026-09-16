@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   discarded every verdict it had already paid for — worst exactly when the cache
   is worth the most. The ledger now lands every 25 fresh verdicts, atomically,
   so an interrupted scan resumes instead of restarting.
+- **Base64-encoded binaries are ignored by default** (`*.base64`, `*.b64`,
+  `*.uu`). Such a file is maximum entropy by construction and never a
+  credential, but the image-extension ignores miss it because the encoding
+  extension comes last: symfony's `favicon.png.base64` produced five candidates
+  on one line that the model could only answer "uncertain", and uncertain is
+  kept — so an image landed in the report as five findings.
+- **Verdicts emitted without the `{"results": ...}` wrapper are accepted.**
+  Groq's `openai/gpt-oss-20b` returns one bare verdict object per candidate often
+  enough to fail whole batches. A `status` field is what marks an object as a
+  verdict, so unwrapped output is unambiguous and is now merged like any other.
 - **A parse failure now prints what the model actually returned.** "no verdicts
   in model output" covered an empty completion, a refusal and a truncated
   response alike, none distinguishable from the error. A bounded snippet of the

@@ -195,6 +195,13 @@ func Default() *Config {
 				"*.min.js", "*.min.css", "*.map", "*.lock", "package-lock.json",
 				"yarn.lock", "pnpm-lock.yaml", "go.sum", "Cargo.lock",
 				"*.png", "*.jpg", "*.jpeg", "*.gif", "*.webp", "*.ico", "*.svg",
+				// Encoded binary. A base64 blob is maximum entropy by
+				// construction and never a credential -- symfony ships
+				// favicon.png.base64, whose single line produced five
+				// candidates that the model could only answer "uncertain",
+				// and uncertain is kept. The image extensions above do not
+				// match because the encoding extension comes last.
+				"*.base64", "*.b64", "*.uu", "*.pem.txt",
 				"*.pdf", "*.zip", "*.gz", "*.tar", "*.jar", "*.war", "*.7z",
 				"*.woff", "*.woff2", "*.ttf", "*.eot", "*.otf",
 				"*.mp3", "*.mp4", "*.mov", "*.avi", "*.wasm", "*.so", "*.dylib",

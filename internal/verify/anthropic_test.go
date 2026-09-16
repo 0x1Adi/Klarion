@@ -203,6 +203,9 @@ func TestParseBatchResultsMalformed(t *testing.T) {
 		{"two objects concatenated", `{"results":[` + one + `]}` + `{"results":[` + two + `]}`, 2},
 		{"two objects comma separated", `{"results":[` + one + `]},{"results":[` + two + `]}`, 2},
 		{"bare array, no wrapper", `[` + one + `,` + two + `]`, 2},
+		{"bare single result, no wrapper", one, 1},
+		{"bare results concatenated", one + two, 2},
+		{"bare results comma separated", one + `,` + two, 2},
 		{"brace inside a string value",
 			`{"results":[{"index":0,"status":"secret","confidence":0.9,"reason":"looks like {json} here"}]}`, 1},
 	}

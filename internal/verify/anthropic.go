@@ -415,7 +415,19 @@ func parseBatchResults(text string) (batchResults, error) {
 			}
 			continue
 		}
-		merged = append(merged, one.Results...)
+		if len(one.Results) > 0 {
+			merged = append(merged, one.Results...)
+			continue
+		}
+		// A model that drops the {"results": ...} wrapper entirely and emits the
+		// verdict objects on their own -- observed from Groq's
+		// openai/gpt-oss-20b, one bare object per candidate. Unwrapped is still
+		// unambiguous: a "status" field is what makes it a verdict rather than
+		// some other object that happened to parse.
+		var item batchResult
+		if err := json.Unmarshal([]byte(o), &item); err == nil && item.Status != "" {
+			merged = append(merged, item)
+		}
 	}
 	if len(merged) == 0 {
 		if items, err := parseResultArray(text); err == nil {
