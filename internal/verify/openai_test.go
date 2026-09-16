@@ -69,3 +69,25 @@ func TestVerifySplitsAnUnparseableBatch(t *testing.T) {
 		}
 	}
 }
+
+// TestVerifyFallsBackToReasoningChannel: a reasoning model at low effort
+// sometimes leaves message.content empty and puts the answer in
+// message.reasoning. Reading only content lost the whole batch as
+// "no verdicts in model output".
+func TestVerifyFallsBackToReasoningChannel(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		inner := `{"results":[{"index":0,"status":"false_positive","confidence":0.9,"reason":"r"}]}`
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"","reasoning":` +
+			strconv.Quote(inner) + `}}]}`))
+	}))
+	defer srv.Close()
+
+	v := &openaiVerifier{model: "stub", baseURL: srv.URL, timeout: 5 * time.Second, client: srv.Client()}
+	got, err := v.Verify(context.Background(), []Request{{Index: 0, Secret: "s", FilePath: "f"}})
+	if err != nil {
+		t.Fatalf("Verify: %v", err)
+	}
+	if len(got) != 1 || got[0].Status != finding.VerdictFalsePositive {
+		t.Fatalf("got %+v, want one false_positive verdict", got)
+	}
+}

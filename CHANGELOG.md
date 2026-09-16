@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   discarded every verdict it had already paid for — worst exactly when the cache
   is worth the most. The ledger now lands every 25 fresh verdicts, atomically,
   so an interrupted scan resumes instead of restarting.
+- **A verdict that arrives in the reasoning channel is no longer lost.** At low
+  reasoning effort some models leave `message.content` empty and put the answer
+  in `message.reasoning`; reading only content failed the batch with "no verdicts
+  in model output". Content is still preferred; reasoning is a fallback.
 - **`ai.reasoning_effort` is forwarded to providers that support it.**
   Adjudication is classification, not deliberation, but a reasoning model left
   at its default spends most of its response budget narrating the decision — and

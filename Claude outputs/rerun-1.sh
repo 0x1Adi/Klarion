@@ -47,7 +47,7 @@ BATCH="${BATCH:-10}"
 CONTEXT_LINES="${CONTEXT_LINES:-5}"
 # Reasoning models bill their scratchpad. For a classification task that is pure
 # waste: measured on Groq's gpt-oss-20b, reasoning traces dominated token use.
-REASONING="${REASONING:-low}"
+REASONING="${REASONING:-medium}"
 ROOT="${ROOT:-$HOME/klarion-bench}"
 REPO="${REPO:-$HOME/ai-project/secret-detector-ai}"
 mkdir -p "$ROOT"

@@ -82,6 +82,13 @@ type openaiResponse struct {
 	Choices []struct {
 		Message struct {
 			Content string `json:"content"`
+			// Reasoning models return their scratchpad separately. At low
+			// reasoning effort some of them leave Content empty and put the
+			// answer here instead, which reads as "no verdicts in model output"
+			// and loses the batch. Observed on Groq's openai/gpt-oss-20b with
+			// reasoning_effort=low: three of four corpora failed this way while
+			// a fourth succeeded, so it is intermittent, not systematic.
+			Reasoning string `json:"reasoning"`
 		} `json:"message"`
 	} `json:"choices"`
 	Error *struct {
@@ -165,7 +172,14 @@ func (o *openaiVerifier) verifyBatch(ctx context.Context, batch []Request) ([]fi
 	if len(or.Choices) == 0 {
 		return nil, fmt.Errorf("openai: response contained no choices")
 	}
-	br, err := parseBatchResults(or.Choices[0].Message.Content)
+	msg := or.Choices[0].Message
+	br, err := parseBatchResults(msg.Content)
+	if err != nil && msg.Reasoning != "" {
+		// Fall back to the reasoning channel before giving up on the batch.
+		if alt, altErr := parseBatchResults(msg.Reasoning); altErr == nil {
+			br, err = alt, nil
+		}
+	}
 	if err != nil {
 		return nil, fmt.Errorf("openai: %w", err)
 	}
