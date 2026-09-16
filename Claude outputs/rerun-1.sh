@@ -27,11 +27,18 @@ elif [ "$PROVIDER" = "ollama" ]; then
 else
   : "${GROQ_API_KEY:?set GROQ_API_KEY (or PROVIDER=ollama MODEL=... for local)}"
 fi
+# One local model on one GPU serialises anyway: N concurrent requests each take
+# N times longer for the same throughput. Hosted APIs benefit from parallelism.
+if [ "$PROVIDER" = "ollama" ] || [ "$PROVIDER" = "claude-cli" ]; then
+  CONCURRENCY="${CONCURRENCY:-1}"
+else
+  CONCURRENCY="${CONCURRENCY:-4}"
+fi
 ROOT="${ROOT:-$HOME/klarion-bench}"
 REPO="${REPO:-$HOME/ai-project/secret-detector-ai}"
 mkdir -p "$ROOT"
 
-echo "==> provider=$PROVIDER model=$MODEL"
+echo "==> provider=$PROVIDER model=$MODEL concurrency=$CONCURRENCY"
 echo "==> building klarion from $REPO"
 ( cd "$REPO" && go build -trimpath -o "$ROOT/klarion" ./cmd/klarion ) || exit 1
 
@@ -44,6 +51,7 @@ model = "$MODEL"
 base_url = "$BASE_URL"
 api_key_env = "GROQ_API_KEY"
 max_batch = 10
+max_concurrency = $CONCURRENCY
 timeout_seconds = 300
 on_error = "fail"
 filter_false_positives = true
@@ -58,36 +66,15 @@ for r in spring-projects/spring-boot hashicorp/terraform vercel/next.js symfony/
   [ -d "$d" ] || { echo "==> cloning $r"; git clone -q --depth 1 "https://github.com/$r" "$d"; rm -rf "$d/.git"; }
 done
 
-# Number of verdicts already in the cache -- the only honest progress signal,
-# since klarion has no per-batch output and a corpus can take many minutes.
-cached() {
-  [ -f "$ROOT/verdicts.json" ] || { echo 0; return; }
-  python3 - "$ROOT/verdicts.json" <<'PY' 2>/dev/null || echo 0
-import json, sys
-try:
-    print(len(json.load(open(sys.argv[1])).get("entries") or {}))
-except Exception:
-    print(0)
-PY
-}
-
-# Runs a scan in the background and ticks progress while it works. Prints the
+# Runs a scan, streaming klarion's own progress to the terminal. Prints the
 # finding count, or ERR:<code>. Exit 0 = clean, 1 = findings, 2+ = error.
 count() {
-  local dir="$1" cfg="$2" label="$3"
+  local dir="$1" cfg="$2" label="$3" rc
   shift 3
+  echo "    -- $label" >&2
   "$ROOT/klarion" scan "$dir" --config "$cfg" "$@" --format json \
-    >"$ROOT/out.json" 2>"$ROOT/last.err" &
-  local pid=$! start before
-  start=$(date +%s)
-  before=$(cached)
-  while kill -0 "$pid" 2>/dev/null; do
-    sleep 5
-    printf '\r    %-22s %4ss  %s verdicts cached (+%s)        ' \
-      "$label" "$(( $(date +%s) - start ))" "$(cached)" "$(( $(cached) - before ))" >&2
-  done
-  wait "$pid"; local rc=$?
-  printf '\r%*s\r' 70 '' >&2
+    >"$ROOT/out.json" 2> >(tee "$ROOT/last.err" >&2)
+  rc=$?
   if [ "$rc" -ge 2 ]; then echo "ERR:$rc"; return; fi
   python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1])).get("findings") or []))' \
     "$ROOT/out.json" 2>/dev/null || echo "ERR:parse"
