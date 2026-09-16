@@ -1,11 +1,13 @@
 package verify
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/0x1Adi/Klarion/internal/config"
 	"github.com/0x1Adi/Klarion/internal/finding"
@@ -457,5 +459,34 @@ func TestDefaultModeRequiresAVerifier(t *testing.T) {
 		if _, err := Build(&config.AIConfig{Mode: mode, Provider: "anthropic", APIKeyEnv: "KLARION_ABSENT_KEY"}); err != nil {
 			t.Errorf("Build(mode=%q) with no credentials: want fallback, got %v", mode, err)
 		}
+	}
+}
+
+// A slow verifier must not look hung: the start line prints before any batch
+// returns, the line is redrawn with elapsed time while waiting, and the run
+// ends on a complete line.
+func TestApplyReportsProgressBeforeFirstBatch(t *testing.T) {
+	var buf bytes.Buffer
+	oldP, oldE := Progress, progressEvery
+	Progress, progressEvery = &buf, 10*time.Millisecond
+	defer func() { Progress, progressEvery = oldP, oldE }()
+
+	slow := &fakeVerifier{name: "slow", fn: func(Request) finding.Verdict {
+		time.Sleep(60 * time.Millisecond)
+		return finding.Verdict{Status: finding.VerdictSecret}
+	}}
+	cfg := &config.AIConfig{MaxBatch: 8, OnError: "keep"}
+	if err := Apply(context.Background(), slow, cfg, mkFindings("a", "b", "c")); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	for _, want := range []string{"adjudicating 3 candidates in 1 batches with slow\n", "0/1 batches (0%), ", " elapsed"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("progress output missing %q:\n%q", want, out)
+		}
+	}
+	last := out[strings.LastIndex(out, "\r")+1:]
+	if !strings.Contains(last, "1/1 batches (100%)") || !strings.HasSuffix(last, "\n") {
+		t.Errorf("progress must end on a complete 100%% line, got %q", last)
 	}
 }

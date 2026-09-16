@@ -36,14 +36,17 @@ GT_CSV = BENCH / "datasets" / "leaky-repo" / ".leaky-meta" / "secrets.csv"
 DATASETS = ["leaky", "flask", "rails"]
 
 
-def sh(cmd, cwd, ok_codes=(0, 1)):
+def sh(cmd, cwd, ok_codes=(0, 1), stream_stderr=False):
+    # stream_stderr passes the tool's stderr straight to the terminal. Klarion
+    # writes its adjudication progress there; captured, a multi-minute AI run
+    # printed nothing and looked like a hang. The report is on stdout either way.
     t0 = time.monotonic()
-    p = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True)
+    p = subprocess.run(cmd, cwd=cwd, stdout=subprocess.PIPE,
+                       stderr=None if stream_stderr else subprocess.PIPE, text=True)
     dt = time.monotonic() - t0
     if p.returncode not in ok_codes:
-        raise RuntimeError(
-            f"{cmd} exited {p.returncode}\nstderr: {p.stderr[-2000:]}"
-        )
+        detail = "(printed above)" if stream_stderr else p.stderr[-2000:]
+        raise RuntimeError(f"{cmd} exited {p.returncode}\nstderr: {detail}")
     return p.stdout, dt
 
 
@@ -69,7 +72,7 @@ def _run_klarion_cmd(dataset, extra):
     # dogfood .klarion.toml, whose allowlists (docs/** etc.) would contaminate
     # the comparison.
     cmd = [str(REPO / "klarion"), "scan", "-f", "json"] + extra + [dataset]
-    out, dt = sh(cmd, cwd=TARGETS)
+    out, dt = sh(cmd, cwd=TARGETS, stream_stderr=True)
     data = json.loads(out)
     finds = [
         {"file": norm(f["file"], dataset), "line": f.get("line"), "rule": f["rule_id"]}

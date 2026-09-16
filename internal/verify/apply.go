@@ -193,6 +193,33 @@ func Apply(ctx context.Context, v Verifier, cfg *config.AIConfig, findings []fin
 	// hang. Progress goes to stderr so it never contaminates a report on stdout.
 	total := len(ranges)
 	started := time.Now()
+	if Progress != nil {
+		fmt.Fprintf(Progress, "klarion: adjudicating %d candidates in %d batches with %s\n", len(findings), total, v.Name())
+	}
+	reportProgress(0, total, started)
+	// Nothing else prints until a batch returns, and a CLI or local model can
+	// take minutes for the first one. Re-render the line meanwhile so a working
+	// scan never looks like a hung one.
+	stopTicker, tickerDone := make(chan struct{}), make(chan struct{})
+	defer func() { close(stopTicker); <-tickerDone }() // no redraw after Apply returns
+	every := progressEvery
+	go func() {
+		defer close(tickerDone)
+		t := time.NewTicker(every)
+		defer t.Stop()
+		for {
+			select {
+			case <-t.C:
+				mu.Lock()
+				if done < total {
+					reportProgress(done, total, started)
+				}
+				mu.Unlock()
+			case <-stopTicker:
+				return
+			}
+		}
+	}()
 	work := make(chan batchRange)
 	var wg sync.WaitGroup
 
@@ -219,7 +246,11 @@ func Apply(ctx context.Context, v Verifier, cfg *config.AIConfig, findings []fin
 						continue
 					}
 					// keep: surface the batch as-is, do not block the scan.
-					fmt.Fprintf(os.Stderr, "klarion: verification failed for findings [%d:%d], keeping them unverified: %v\n", r.start, r.end, err)
+					fmt.Fprintf(os.Stderr, "\nklarion: verification failed for findings [%d:%d], keeping them unverified: %v\n", r.start, r.end, err)
+					mu.Lock()
+					done++ // finished, if unverified: the count must still reach total
+					reportProgress(done, total, started)
+					mu.Unlock()
 					continue
 				}
 				for i := range chunk {
@@ -251,6 +282,9 @@ func Apply(ctx context.Context, v Verifier, cfg *config.AIConfig, findings []fin
 // silence it (tests) or redirect it; nil means no reporting.
 var Progress io.Writer = os.Stderr
 
+// progressEvery is how often the line is redrawn while no batch has returned.
+var progressEvery = 5 * time.Second
+
 // reportProgress emits a single rewritten line: batches done, percentage, and
 // an estimate built from observed throughput rather than a guess.
 func reportProgress(done, total int, started time.Time) {
@@ -259,7 +293,10 @@ func reportProgress(done, total int, started time.Time) {
 	}
 	elapsed := time.Since(started)
 	msg := fmt.Sprintf("klarion: adjudicating %d/%d batches (%d%%)", done, total, done*100/total)
-	if done > 0 && done < total {
+	switch {
+	case done == 0:
+		msg += fmt.Sprintf(", %s elapsed", elapsed.Round(time.Second))
+	case done < total:
 		per := elapsed / time.Duration(done)
 		msg += fmt.Sprintf(", ~%s left", (per * time.Duration(total-done)).Round(time.Second))
 	}
