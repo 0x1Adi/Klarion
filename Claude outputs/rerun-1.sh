@@ -36,13 +36,23 @@ else
 fi
 # Token levers. The system prompt is resent with every batch, so a larger batch
 # amortises it; context lines are the dominant per-candidate cost.
+# SAMPLE=0.15 scans a seeded random 15% of each corpus instead of all of it.
+# Establishing "adjudication removes ~N% of pre-filter output" does not need
+# every candidate: at n=400 the 95% interval on a proportion near 0.8 is about
+# +/-4 points. The seed is fixed so the sample is reproducible, and whole files
+# are sampled so block collapsing still sees complete key material.
+SAMPLE="${SAMPLE:-0}"
+SEED="${SEED:-1729}"
 BATCH="${BATCH:-10}"
 CONTEXT_LINES="${CONTEXT_LINES:-5}"
+# Reasoning models bill their scratchpad. For a classification task that is pure
+# waste: measured on Groq's gpt-oss-20b, reasoning traces dominated token use.
+REASONING="${REASONING:-low}"
 ROOT="${ROOT:-$HOME/klarion-bench}"
 REPO="${REPO:-$HOME/ai-project/secret-detector-ai}"
 mkdir -p "$ROOT"
 
-echo "==> provider=$PROVIDER model=$MODEL concurrency=$CONCURRENCY batch=$BATCH context=$CONTEXT_LINES"
+echo "==> provider=$PROVIDER model=$MODEL concurrency=$CONCURRENCY batch=$BATCH context=$CONTEXT_LINES reasoning=$REASONING sample=$SAMPLE seed=$SEED"
 echo "==> building klarion from $REPO"
 ( cd "$REPO" && go build -trimpath -o "$ROOT/klarion" ./cmd/klarion ) || exit 1
 
@@ -56,6 +66,7 @@ base_url = "$BASE_URL"
 api_key_env = "GROQ_API_KEY"
 max_batch = $BATCH
 max_context_lines = $CONTEXT_LINES
+reasoning_effort = "$REASONING"
 max_concurrency = $CONCURRENCY
 timeout_seconds = 300
 on_error = "fail"
@@ -71,18 +82,55 @@ for r in spring-projects/spring-boot hashicorp/terraform vercel/next.js symfony/
   [ -d "$d" ] || { echo "==> cloning $r"; git clone -q --depth 1 "https://github.com/$r" "$d"; rm -rf "$d/.git"; }
 done
 
-# Runs a scan, streaming klarion's own progress to the terminal. Prints the
-# finding count, or ERR:<code>. Exit 0 = clean, 1 = findings, 2+ = error.
-count() {
-  local dir="$1" cfg="$2" label="$3" rc
+# Runs a scan. Klarion writes JSON to a file and its progress straight to the
+# terminal; the count is read back from the file afterwards.
+#
+# Deliberately NOT `$(klarion ... 2> >(tee ...))`. Command substitution waits on
+# process substitution, so that form can hang after klarion has already exited
+# -- which looks exactly like a stalled scan and cost an evening to find.
+run_scan() {
+  local dir="$1" cfg="$2" label="$3"
   shift 3
   echo "    -- $label" >&2
-  "$ROOT/klarion" scan "$dir" --config "$cfg" "$@" --format json \
-    >"$ROOT/out.json" 2> >(tee "$ROOT/last.err" >&2)
-  rc=$?
-  if [ "$rc" -ge 2 ]; then echo "ERR:$rc"; return; fi
+  "$ROOT/klarion" scan "$dir" --config "$cfg" "$@" --format json >"$ROOT/out.json"
+  local rc=$?
+  if [ "$rc" -ge 2 ]; then echo "ERR:$rc" >"$ROOT/count.txt"; return; fi
   python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1])).get("findings") or []))' \
-    "$ROOT/out.json" 2>/dev/null || echo "ERR:parse"
+    "$ROOT/out.json" >"$ROOT/count.txt" 2>/dev/null || echo "ERR:parse" >"$ROOT/count.txt"
+}
+
+# count() keeps the old call shape but reads the result from a file.
+count() {
+  run_scan "$@"
+  cat "$ROOT/count.txt"
+}
+
+
+# Build the sampled tree once per corpus, deterministically.
+sample_dir() {
+  local src="$1" dst="$2" frac="$3"
+  [ -d "$dst" ] && { echo "$dst"; return; }
+  python3 - "$src" "$dst" "$frac" "$SEED" <<'PY'
+import os, random, shutil, sys
+src, dst, frac, seed = sys.argv[1], sys.argv[2], float(sys.argv[3]), int(sys.argv[4])
+files = []
+for root, dirs, names in os.walk(src):
+    dirs[:] = [d for d in dirs if d != ".git"]
+    files.extend(os.path.join(root, n) for n in names)
+files.sort()                      # os.walk order is not stable across machines
+random.Random(seed).shuffle(files)
+keep = files[: max(1, int(len(files) * frac))]
+for f in keep:
+    rel = os.path.relpath(f, src)
+    out = os.path.join(dst, rel)
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    try:
+        shutil.copy2(f, out)
+    except OSError:
+        pass
+print(f"    sampled {len(keep)}/{len(files)} files", file=sys.stderr)
+PY
+  echo "$dst"
 }
 
 printf '\n%-14s %10s %10s %8s %8s\n' corpus "no-AI" "AI on" cut time
@@ -90,6 +138,9 @@ printf -- '-%.0s' {1..56}; echo
 t_off=0; t_ai=0
 for name in spring-boot terraform next.js symfony; do
   d="$ROOT/$name"
+  if [ "$SAMPLE" != "0" ]; then
+    d=$(sample_dir "$ROOT/$name" "$ROOT/$name-sample-$SAMPLE-$SEED" "$SAMPLE")
+  fi
   echo "==> $name" >&2
   off=$(count "$d" "$ROOT/neutral.toml" "$name no-AI" --ai-mode off)
   s=$(date +%s)

@@ -140,6 +140,14 @@ type AIConfig struct {
 	SendSecret bool `toml:"send_secret"`
 	// MaxContextLines caps the context snippet sent per finding.
 	MaxContextLines int `toml:"max_context_lines"`
+	// ReasoningEffort is forwarded to providers that expose it ("low",
+	// "medium", "high"). Adjudication is classification, not deliberation: a
+	// reasoning model left at its default spends most of the response budget
+	// narrating why a string is or is not a secret, and those tokens are billed
+	// and rate-limited like any other. Measured on Groq's openai/gpt-oss-20b,
+	// reasoning traces dominated token use by roughly 3x. Empty leaves the
+	// provider default alone, which is right for non-reasoning models.
+	ReasoningEffort string `toml:"reasoning_effort"`
 	// CachePath persists adjudicated verdicts between runs, keyed by a one-way
 	// hash of (rule id, secret) and scoped to the provider+model. Empty
 	// disables it. Only the status and confidence are stored — never the

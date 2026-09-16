@@ -20,11 +20,12 @@ const defaultOpenAIBaseURL = "https://api.openai.com/v1"
 // OpenAI itself, Ollama, vLLM, LiteLLM, and similar gateways. Raw net/http, no
 // SDK. The API key may be empty (Ollama and some local gateways need none).
 type openaiVerifier struct {
-	model   string
-	baseURL string
-	apiKey  string
-	timeout time.Duration
-	client  *http.Client
+	model     string
+	reasoning string
+	baseURL   string
+	apiKey    string
+	timeout   time.Duration
+	client    *http.Client
 }
 
 // newOpenAI builds a verifier from config. baseURL is normalized to include the
@@ -47,11 +48,12 @@ func newOpenAI(cfg *config.AIConfig) *openaiVerifier {
 		to = 45 * time.Second
 	}
 	return &openaiVerifier{
-		model:   model,
-		baseURL: base,
-		apiKey:  key,
-		timeout: to,
-		client:  &http.Client{},
+		model:     model,
+		reasoning: cfg.ReasoningEffort,
+		baseURL:   base,
+		apiKey:    key,
+		timeout:   to,
+		client:    &http.Client{},
 	}
 }
 
@@ -66,6 +68,9 @@ type openaiRequest struct {
 	Messages       []openaiMessage `json:"messages"`
 	ResponseFormat map[string]any  `json:"response_format,omitempty"`
 	Temperature    float64         `json:"temperature"`
+	// Omitted unless configured: a provider that does not know the field may
+	// reject the request outright.
+	ReasoningEffort string `json:"reasoning_effort,omitempty"`
 }
 
 type openaiMessage struct {
@@ -126,8 +131,9 @@ func (o *openaiVerifier) verifyBatch(ctx context.Context, batch []Request) ([]fi
 		// JSON mode: the model is constrained to emit a single JSON object.
 		// The exact shape is dictated by systemPrompt (json_object mode does
 		// not accept a schema across all compatible backends).
-		ResponseFormat: map[string]any{"type": "json_object"},
-		Temperature:    0,
+		ResponseFormat:  map[string]any{"type": "json_object"},
+		Temperature:     0,
+		ReasoningEffort: o.reasoning,
 	}
 	raw, err := json.Marshal(reqBody)
 	if err != nil {

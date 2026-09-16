@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   discarded every verdict it had already paid for — worst exactly when the cache
   is worth the most. The ledger now lands every 25 fresh verdicts, atomically,
   so an interrupted scan resumes instead of restarting.
+- **`ai.reasoning_effort` is forwarded to providers that support it.**
+  Adjudication is classification, not deliberation, but a reasoning model left
+  at its default spends most of its response budget narrating the decision — and
+  those tokens are billed and rate-limited like any other. On Groq's
+  `openai/gpt-oss-20b` the reasoning traces dominated token use by roughly 3x,
+  exhausting a daily quota in about 25 batches. Empty by default, so
+  non-reasoning models are unaffected.
 - **Adjudication reports progress.** The slow stage produced no output at all,
   so a local model spending half an hour on one repository was indistinguishable
   from a hang. Batches done, percentage and an estimate from observed throughput
