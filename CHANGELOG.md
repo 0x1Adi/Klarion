@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The verdict cache is written during a scan, not only at the end.** Flushing
+  at `Close` meant a run killed by a rate limit, a daily token quota or Ctrl-C
+  discarded every verdict it had already paid for — worst exactly when the cache
+  is worth the most. The ledger now lands every 25 fresh verdicts, atomically,
+  so an interrupted scan resumes instead of restarting.
 - **Adjudication reports progress.** The slow stage produced no output at all,
   so a local model spending half an hour on one repository was indistinguishable
   from a hang. Batches done, percentage and an estimate from observed throughput

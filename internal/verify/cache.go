@@ -28,6 +28,9 @@ type cacheVerifier struct {
 	mu      sync.Mutex
 	entries map[string]finding.Verdict
 	dirty   bool
+
+	// sinceFlush counts verdicts written since the ledger last hit disk.
+	sinceFlush int
 }
 
 // scopedVerifier is implemented by providers whose verdicts depend on a model.
@@ -124,7 +127,13 @@ func (c *cacheVerifier) Verify(ctx context.Context, batch []Request) ([]finding.
 		if verdicts[j].Status != finding.VerdictUncertain {
 			c.entries[keys[idx]] = verdicts[j]
 			c.dirty = true
+			c.sinceFlush++
 		}
+	}
+	if c.sinceFlush >= flushWindow {
+		// Losing a cache costs money, not correctness, so a failed flush is
+		// never allowed to fail the scan.
+		_ = c.flushLocked()
 	}
 	c.mu.Unlock()
 
@@ -161,7 +170,19 @@ func (c *cacheVerifier) Close() error {
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if !c.dirty {
+	return c.flushLocked()
+}
+
+// flushWindow is how many fresh verdicts may accumulate before the ledger is
+// written. Flushing only at Close meant a scan killed by a rate limit, a daily
+// token quota or Ctrl-C threw away every verdict it had already paid for --
+// which is precisely when the cache is worth the most. Write-then-rename makes
+// each flush atomic, so doing it often is safe.
+const flushWindow = 25
+
+// flushLocked writes the ledger. The caller must hold c.mu.
+func (c *cacheVerifier) flushLocked() error {
+	if c.path == "" || !c.dirty {
 		return nil
 	}
 
@@ -207,6 +228,7 @@ func (c *cacheVerifier) Close() error {
 		return err
 	}
 	c.dirty = false
+	c.sinceFlush = 0
 	return nil
 }
 

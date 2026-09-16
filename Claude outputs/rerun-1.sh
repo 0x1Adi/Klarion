@@ -34,11 +34,15 @@ if [ "$PROVIDER" = "ollama" ] || [ "$PROVIDER" = "claude-cli" ]; then
 else
   CONCURRENCY="${CONCURRENCY:-4}"
 fi
+# Token levers. The system prompt is resent with every batch, so a larger batch
+# amortises it; context lines are the dominant per-candidate cost.
+BATCH="${BATCH:-10}"
+CONTEXT_LINES="${CONTEXT_LINES:-5}"
 ROOT="${ROOT:-$HOME/klarion-bench}"
 REPO="${REPO:-$HOME/ai-project/secret-detector-ai}"
 mkdir -p "$ROOT"
 
-echo "==> provider=$PROVIDER model=$MODEL concurrency=$CONCURRENCY"
+echo "==> provider=$PROVIDER model=$MODEL concurrency=$CONCURRENCY batch=$BATCH context=$CONTEXT_LINES"
 echo "==> building klarion from $REPO"
 ( cd "$REPO" && go build -trimpath -o "$ROOT/klarion" ./cmd/klarion ) || exit 1
 
@@ -50,7 +54,8 @@ provider = "$PROVIDER"
 model = "$MODEL"
 base_url = "$BASE_URL"
 api_key_env = "GROQ_API_KEY"
-max_batch = 10
+max_batch = $BATCH
+max_context_lines = $CONTEXT_LINES
 max_concurrency = $CONCURRENCY
 timeout_seconds = 300
 on_error = "fail"
