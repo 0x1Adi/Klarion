@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   discarded every verdict it had already paid for — worst exactly when the cache
   is worth the most. The ledger now lands every 25 fresh verdicts, atomically,
   so an interrupted scan resumes instead of restarting.
+- **A parse failure now prints what the model actually returned.** "no verdicts
+  in model output" covered an empty completion, a refusal and a truncated
+  response alike, none distinguishable from the error. A bounded snippet of the
+  response is included; it can quote candidate text, so it goes only to the
+  operator's terminal, never to a report or the cache.
 - **A verdict that arrives in the reasoning channel is no longer lost.** At low
   reasoning effort some models leave `message.content` empty and put the answer
   in `message.reasoning`; reading only content failed the batch with "no verdicts

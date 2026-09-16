@@ -398,7 +398,7 @@ func parseBatchResults(text string) (batchResults, error) {
 		if items, err := parseResultArray(text); err == nil {
 			return batchResults{Results: items}, nil
 		}
-		return br, fmt.Errorf("no JSON object in model output")
+		return br, fmt.Errorf("no JSON object in model output (model said: %s)", snippet(text))
 	}
 
 	// Merge across objects. A model under JSON mode sometimes splits one batch
@@ -422,12 +422,31 @@ func parseBatchResults(text string) (batchResults, error) {
 			return batchResults{Results: items}, nil
 		}
 		if firstErr != nil {
-			return br, fmt.Errorf("parse model JSON: %w", firstErr)
+			return br, fmt.Errorf("parse model JSON: %w (model said: %s)", firstErr, snippet(text))
 		}
-		return br, fmt.Errorf("no verdicts in model output")
+		return br, fmt.Errorf("no verdicts in model output (model said: %s)", snippet(text))
 	}
 	br.Results = merged
 	return br, nil
+}
+
+// snippet renders what the model actually returned, bounded, so a parse failure
+// is diagnosable from the error alone. Guessing at the cause of an empty result
+// twice was slower than printing it once.
+//
+// It can contain candidate text, so it goes only into an error the operator
+// sees -- never into a report or the verdict cache.
+func snippet(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return "<empty response>"
+	}
+	s = strings.Join(strings.Fields(s), " ")
+	const max = 220
+	if len(s) > max {
+		return s[:max] + "..."
+	}
+	return s
 }
 
 // parseResultArray accepts a bare array of result objects, for models that omit
