@@ -77,7 +77,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0       # needed so a PR's base commit is available
-      - uses: 0x1Adi/Klarion@v0.3.1
+      - uses: 0x1Adi/Klarion@v0.3.2
         with:
           fail-on-severity: medium
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -93,13 +93,19 @@ That is the whole configuration. By default the action:
 - **fails if no API key is set** (`ai-mode: on`). Pass `anthropic-api-key:`.
   `ai-mode: auto` continues with a warning and raw entropy output, which is
   too noisy to rely on.
-- **installs the scanner matching the tag you pinned**: `@v0.3.1` runs the
-  v0.3.1 binary, and `@v0` installs the latest release.
+- **installs the scanner matching the release you pinned**, by tag or commit
+  SHA: `@v0.3.2` runs the v0.3.2 binary, and `@v0` runs the release `v0`
+  points to.
+- **lists findings in the job log and as annotations**: file, line, rule and
+  verdict, never the value. If GitHub rejects the Security tab upload (a
+  private repo without GitHub Code Security, or a job without
+  `security-events: write`), the action warns and the scan result still
+  decides the job.
 
 Useful overrides:
 
 ```yaml
-      - uses: 0x1Adi/Klarion@v0.3.1
+      - uses: 0x1Adi/Klarion@v0.3.2
         with:
           scan-mode: full          # auto | diff | full | history
           base: ${{ github.event.pull_request.base.sha }}

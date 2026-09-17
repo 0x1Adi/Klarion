@@ -79,13 +79,15 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: 0x1Adi/Klarion@v0.3.1
+      - uses: 0x1Adi/Klarion@v0.3.2
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
 
 On a pull request it scans only what the PR adds. It caches the AI answers, so unchanged code
-costs nothing. GitLab CI and every option are in the [reference](./docs/reference.md).
+costs nothing. Findings show in the job log. On a private repo without GitHub Code Security,
+add `upload-sarif: "false"` to skip the Security tab upload. GitLab CI and every option are in
+the [reference](./docs/reference.md).
 
 ## Results
 

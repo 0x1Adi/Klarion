@@ -7,6 +7,10 @@ project_name: klarion
 before:
   hooks:
     - go mod tidy
+    # The Action installs the scanner named in action.yml. A release whose
+    # action.yml still names the previous version would ship the old binary to
+    # everyone pinning the new tag, so refuse to publish it. Snapshots skip.
+    - sh -c '[ "{{ .IsSnapshot }}" = "true" ] || sh scripts/check-release-version.sh "{{ .Tag }}"'
 
 builds:
   - id: klarion

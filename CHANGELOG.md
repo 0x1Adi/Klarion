@@ -5,6 +5,44 @@ All notable changes to Klarion are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2026-09-17
+
+### Fixed
+
+- **The Action installed the newest scanner, whatever you pinned.** The version
+  came from `GITHUB_ACTION_REF`, which the runner leaves empty inside composite
+  actions, so `uses: 0x1Adi/Klarion@v0.3.1`, or a commit SHA, always installed the
+  latest release, looked up through an unauthenticated GitHub API call. The
+  version is now written into `action.yml` when a release is cut, and the release
+  fails if it does not match the tag (`scripts/check-release-version.sh`). Pinning
+  the action now pins the scanner.
+- **The Action's threshold check never ran on findings.** GitHub runs `shell: bash`
+  steps with `-e`, so the scanner's exit 1 ended the scan step early: the run failed
+  with a bare "exit code 1" instead of "found secrets", and findings looked the same
+  as a crash. The scan step now turns `-e` off, and the check fails closed when no
+  result was recorded.
+- **A rejected Security tab upload no longer fails the build.** GitHub rejects
+  code-scanning uploads on private repositories without GitHub Code Security, and
+  from jobs without `security-events: write`, so clean scans went red. The action
+  now warns, and the scan result decides the job.
+- **No more false "AI verification will not run" warning.** It fired whenever the
+  `anthropic-api-key` input was empty, including runs that used a model set in
+  `.klarion.toml`. The action now warns only when `ai-mode: auto` really ran
+  without a model.
+- **A re-run can save its verdict cache.** The cache key now includes the run
+  attempt; a re-run failed to save with "Unable to reserve cache".
+
+### Added
+
+- **Findings are listed in the Action log and as annotations**: file, line, rule
+  and verdict, never the value. Before, only the Security tab upload said where a
+  secret was, so a run without it failed without saying where.
+
+### Changed
+
+- **The Security tab upload uses CodeQL Action v4.37.0.** v3 is deprecated in
+  December 2026 and runs on Node.js 20.
+
 ## [0.3.1] - 2026-09-17
 
 ### Added

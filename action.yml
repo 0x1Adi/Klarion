@@ -5,17 +5,17 @@
 #   jobs:
 #     secret-scan:
 #       runs-on: ubuntu-latest
-#       # REQUIRED when upload-sarif is true (the default). Workflows default to
+#       # Needed when upload-sarif is true (the default). Workflows default to
 #       # a read-only token, and the code-scanning upload needs write access to
-#       # security-events — without this block the scan runs, finds everything
-#       # it should, and then the upload step fails the job with "Resource not
-#       # accessible by integration".
+#       # security-events. Without this block GitHub rejects the upload
+#       # ("Resource not accessible by integration"): the action warns, and the
+#       # scan result still decides the job.
 #       permissions:
 #         contents: read
 #         security-events: write
 #       steps:
 #         - uses: actions/checkout@v6
-#         - uses: 0x1Adi/Klarion@v0.2.2
+#         - uses: 0x1Adi/Klarion@v0.3.2
 #           with:
 #             path: .
 #             fail-on-severity: medium
@@ -26,7 +26,10 @@
 #             anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
 #
 # Set upload-sarif: "false" if you do not want the code-scanning integration; the
-# action then needs no permissions beyond the default contents: read.
+# action then needs no permissions beyond the default contents: read. A private
+# repository also needs GitHub Code Security for the upload. Without it GitHub
+# rejects the upload, the action warns and carries on, and findings are still
+# listed in the job log.
 #
 # DEFAULT BEHAVIOR, and why:
 #
@@ -42,16 +45,20 @@
 #     a one-way hash and a status per candidate: no secrets, and not the model's
 #     written reason (which quotes the value it describes).
 #
-#   * no API key — THIS IS A MISCONFIGURATION, not a supported mode. Klarion
+#   * no model — THIS IS A MISCONFIGURATION, not a supported mode. Klarion
 #     needs a model to adjudicate candidates; the entropy pass alone reports
 #     ordinary identifiers, certificates and vendored code as findings (see
-#     benchmark/REPORT.md section 12). The run emits a loud ::warning:: and
-#     continues so a missing secret does not hard-break your pipeline, but you
-#     should treat that warning as a build problem and fix it. Set ai-mode: on
-#     to fail the run instead.
+#     benchmark/REPORT.md section 12). Under the default ai-mode: on the run
+#     fails. Under ai-mode: auto it continues on local checks with a loud
+#     ::warning::, raised from the verifier the scan actually used, so a
+#     provider configured in .klarion.toml never triggers it.
 #
-#   * version — defaults to the tag this action was pinned at, so
-#     `uses: 0x1Adi/Klarion@v1.2.3` installs the v1.2.3 scanner.
+#   * version — defaults to the release this action file belongs to. The tag is
+#     written into inputs.version.default when a release is cut, and the
+#     release fails if the two differ (scripts/check-release-version.sh). So
+#     pinning the action by tag or by commit SHA pins the scanner too.
+#     GITHUB_ACTION_REF cannot do this: the runner leaves it empty inside
+#     composite actions (actions/runner#2473).
 #
 # The key MUST be passed as an input, not as `env:` on this step. A composite
 # action sees only workflow-level and job-level env; step-level `env:` on the
@@ -59,8 +66,10 @@
 # silently yields no key, and `ai-mode: auto` then resolves to OFF.
 #
 # The action writes SARIF to klarion.sarif and (optionally) uploads it to the
-# GitHub code-scanning dashboard. It exits non-zero when findings at or above
-# `fail-on-severity` are detected, failing the check.
+# GitHub code-scanning dashboard. Each finding is also listed in the job log and
+# as an annotation: file, line, rule and verdict, never the value. It exits
+# non-zero when findings at or above `fail-on-severity` are detected, failing
+# the check. A rejected upload only warns.
 #
 # SECURITY: every caller-supplied input is passed to bash through `env:` and
 # referenced as a quoted shell variable. Never interpolate `${{ inputs.* }}`
@@ -160,11 +169,13 @@ inputs:
     default: ""
   version:
     description: >-
-      Klarion release tag to install (e.g. v0.2.2), or "latest" for the newest
-      release. Defaults to the tag this action was pinned at, so
-      `uses: 0x1Adi/Klarion@v1.2.3` runs the v1.2.3 scanner.
+      Klarion release tag to install (e.g. v0.3.2), or "latest" for the newest
+      release. Defaults to the release this action file belongs to, so pinning
+      the action by tag or commit SHA also pins the scanner.
     required: false
-    default: ""
+    # Written when a release is cut. scripts/check-release-version.sh fails the
+    # release if this does not match the tag being published.
+    default: "v0.3.2"
 
 runs:
   using: "composite"
@@ -223,9 +234,9 @@ runs:
             ;;
         esac
 
-        # Release tags only: 'latest' or a semver-ish tag. Empty is allowed and
-        # resolved from the action ref in the next step. Rejects path traversal
-        # and shell metacharacters before the value reaches a URL.
+        # Release tags only: 'latest' or a semver-ish tag. Empty means latest
+        # (next step). Rejects path traversal and shell metacharacters before
+        # the value reaches a URL.
         if [ -n "$INPUT_VERSION" ] && \
            ! [[ "$INPUT_VERSION" =~ ^(latest|v?[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?)$ ]]; then
           echo "::error::version must be 'latest' or a release tag like v1.2.3 (got '$INPUT_VERSION')."
@@ -234,10 +245,10 @@ runs:
 
     # Resolve which scanner build to install, and what to scan.
     #
-    # Version: an empty `version` input means "whatever tag the caller pinned
-    # this action at". GITHUB_ACTION_REF is that ref. Without this the action
-    # and the binary drift — `uses: …@v2.0.0` would keep installing whatever
-    # literal default was last hard-coded here.
+    # Version: inputs.version defaults to this action file's own release (see
+    # the input). It used to come from GITHUB_ACTION_REF, which the runner
+    # leaves empty inside composite actions, so every run installed the latest
+    # release whatever the caller pinned.
     #
     # Scan mode: `auto` follows the convention every other scanner in this
     # space uses — a pull request is judged on what it introduces, everything
@@ -256,18 +267,7 @@ runs:
       run: |
         set -euo pipefail
 
-        version="$INPUT_VERSION"
-        if [ -z "$version" ]; then
-          ref="${GITHUB_ACTION_REF:-}"
-          if [[ "$ref" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
-            version="$ref"
-          else
-            # A branch or SHA ref (e.g. @main, or a local ./ checkout) has no
-            # corresponding release; fall back to the newest published one.
-            version="latest"
-            [ -n "$ref" ] && echo "::notice::action ref '$ref' is not a release tag; installing the latest klarion release."
-          fi
-        fi
+        version="${INPUT_VERSION:-latest}"
         echo "version=$version" >> "$GITHUB_OUTPUT"
 
         mode="$INPUT_SCAN_MODE"
@@ -331,23 +331,27 @@ runs:
     # actions/cache so there is no post-step to depend on: post steps of nested
     # actions have historically been unreliable inside composite actions.
     #
-    # The key is scoped by the ledger path and rolls forward with each run
-    # (restore-keys falls back to the newest previous ledger), which is the
-    # standard immutable-cache pattern — a cache entry is never overwritten.
+    # The key is scoped by the ledger path and rolls forward with each run and
+    # each re-run attempt (restore-keys falls back to the newest previous
+    # ledger), which is the standard immutable-cache pattern — a cache entry is
+    # never overwritten. Without the attempt a re-run could not save its ledger
+    # ("Unable to reserve cache").
     - name: Restore verdict cache
       id: cache-restore
       if: ${{ inputs.cache == 'true' && inputs.ai-mode != 'off' }}
       uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: ${{ inputs.cache-path }}
-        key: klarion-verdicts-${{ inputs.cache-path }}-${{ github.run_id }}
+        key: klarion-verdicts-${{ inputs.cache-path }}-${{ github.run_id }}-${{ github.run_attempt }}
         restore-keys: |
           klarion-verdicts-${{ inputs.cache-path }}-
 
     - name: Run klarion scan
       shell: bash
-      # Do not `set -e` around the scan: exit 1 means "findings", which we still
-      # want to surface via SARIF before failing the step deliberately below.
+      # `shell: bash` runs scripts with -eo pipefail, so this one turns -e off.
+      # Exit 1 means "findings", and the steps below must still run: list them,
+      # save the cache, upload, then fail on purpose in the threshold check.
+      # With -e on, exit 1 ended this step before KLARION_EXIT was recorded.
       env:
         INPUT_PATH: ${{ inputs.path }}
         INPUT_CONFIG: ${{ inputs.config }}
@@ -363,26 +367,7 @@ runs:
         SCAN_HEAD: ${{ steps.plan.outputs.head }}
         ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
       run: |
-        set -uo pipefail
-
-        # Announce the downgrade. `ai-mode: auto` means "use AI when credentials
-        # are available", so a missing key silently drops the run to the
-        # heuristic-only path — materially worse precision — while the log still
-        # reads as a normal successful scan. Silent degradation would make AI
-        # adjudication a conditional control rather than a structural one; the
-        # user must be told they are not getting what they think they are.
-        if [ -z "$ANTHROPIC_API_KEY" ]; then
-          case "$INPUT_AI_MODE" in
-            auto)
-              echo "::warning::Klarion has NO API KEY, so ai-mode=auto resolved to OFF. Klarion requires a model: without adjudication this run reports raw entropy candidates and will flag identifiers, certificates and vendored code as secrets. Treat the results as unreliable. Pass the key through the anthropic-api-key input, set from your ANTHROPIC_API_KEY repository secret — a step-level env: block is not visible inside a composite action."
-              ;;
-            on)
-              # Not fatal: .klarion.toml may point api_key_env at a different
-              # variable that is already present in the environment.
-              echo "::warning::ai-mode=on but the anthropic-api-key input is empty. Unless .klarion.toml sets api_key_env to another variable already in scope, AI verification will not run."
-              ;;
-          esac
-        fi
+        set +e -uo pipefail
 
         # Flag names must match `klarion --help`: --fail-on (not
         # --fail-on-severity), and the report is written to stdout (there is no
@@ -428,9 +413,47 @@ runs:
           args+=("${extra[@]}")
         fi
 
-        klarion "${args[@]}" > "$INPUT_SARIF_FILE"
-        rc=$?
+        # stderr is teed to a file: the log still streams progress live, and the
+        # checks below can see which verifier the scan really used.
+        errlog="$RUNNER_TEMP/klarion-stderr.log"
+        { klarion "${args[@]}" > "$INPUT_SARIF_FILE"; echo "$?" > "$RUNNER_TEMP/klarion-exit"; } 2>&1 | tee "$errlog" >&2
+        rc="$(cat "$RUNNER_TEMP/klarion-exit" 2>/dev/null)"
+        [ -n "$rc" ] || rc=2
         echo "KLARION_EXIT=$rc" >> "$GITHUB_ENV"
+
+        # Warn about a downgrade from what the scan used, not from which input
+        # is set: a provider configured in .klarion.toml is a real model, and an
+        # empty anthropic-api-key says nothing about it. Under ai-mode: on a
+        # missing model already fails the scan, so only auto needs this.
+        if [ "$INPUT_AI_MODE" = "auto" ] && grep -q 'batches with heuristic$' "$errlog"; then
+          echo "::warning::Klarion found no AI model, so ai-mode=auto used local checks only. Those flag identifiers, certificates and vendored code as secrets: treat these results as unreliable. Pass anthropic-api-key from a repository secret, or set a provider in .klarion.toml."
+        fi
+
+        # List findings in the log and as annotations, so a failed run says
+        # where the secret is even without the code-scanning upload
+        # (upload-sarif: "false", or a private repository without GitHub Code
+        # Security). Only file, line, rule and verdict are printed. The message
+        # text never is: it carries the value, redacted or not. Workflow-command
+        # fields are escaped, so a crafted file name cannot inject a command.
+        # GitHub shows 10 annotations per level per step; 50 findings are listed.
+        if ! command -v jq >/dev/null 2>&1; then
+          echo "::notice::jq is not installed on this runner, so findings are not listed in the log."
+        elif [ -s "$INPUT_SARIF_FILE" ]; then
+          jq -r --argjson max 50 '
+            def data: gsub("%"; "%25") | gsub("\r"; "%0D") | gsub("\n"; "%0A");
+            def prop: data | gsub(":"; "%3A") | gsub(","; "%2C");
+            [.runs[]?.results[]?] as $all
+            | ($all[:$max][]
+                | (.locations[0].physicalLocation.artifactLocation.uri // "unknown" | tostring) as $file
+                | (.locations[0].physicalLocation.region.startLine // 1 | tostring) as $line
+                | (.ruleId // "finding" | tostring) as $rule
+                | ([(.message.text // "") | scan(" \\((secret|uncertain|unverified|false_positive)\\): ")[0]] | first // "unverified") as $verdict
+                | (if .level == "error" then "error" elif .level == "warning" then "warning" else "notice" end) as $cmd
+                | "Klarion: \($file | data):\($line | data) \($rule | data) (\($verdict))",
+                  "::\($cmd) file=\($file | prop),line=\($line | prop),title=\("Klarion: " + $rule | prop)::\("Possible secret (" + $verdict + "). Rotate it if it is real, then remove it from the code." | data)"),
+              (if ($all | length) > $max then "Klarion: showing the first \($max) of \($all | length) findings." else empty end)
+          ' "$INPUT_SARIF_FILE" || echo "::warning::Klarion could not read $INPUT_SARIF_FILE to list findings."
+        fi
 
     # Save unconditionally (always()), because a run that found secrets still
     # produced verdicts worth keeping — that is precisely the expensive part.
@@ -439,13 +462,29 @@ runs:
       uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: ${{ inputs.cache-path }}
-        key: klarion-verdicts-${{ inputs.cache-path }}-${{ github.run_id }}
+        key: klarion-verdicts-${{ inputs.cache-path }}-${{ github.run_id }}-${{ github.run_attempt }}
 
+    # A rejected upload must not decide the build; the threshold check below
+    # does. GitHub rejects code-scanning uploads on private repositories without
+    # GitHub Code Security, and from jobs without security-events: write.
     - name: Upload SARIF
+      id: upload
       if: ${{ inputs.upload-sarif == 'true' && always() }}
-      uses: github/codeql-action/upload-sarif@c3400c2f38909e0dcf3c3a41f2030a8217be5d3e # v3
+      continue-on-error: true
+      uses: github/codeql-action/upload-sarif@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4.37.0
       with:
         sarif_file: ${{ inputs.sarif-file }}
+
+    - name: Report the upload
+      if: ${{ inputs.upload-sarif == 'true' && always() }}
+      shell: bash
+      env:
+        UPLOAD_OUTCOME: ${{ steps.upload.outcome }}
+      run: |
+        echo "KLARION_UPLOAD=$UPLOAD_OUTCOME" >> "$GITHUB_ENV"
+        if [ "$UPLOAD_OUTCOME" = "failure" ]; then
+          echo "::warning::Klarion could not upload results to the Security tab. The scan still ran, its findings are listed above, and the pass or fail check still applies. A private repository needs GitHub Code Security for this upload, and the job needs security-events: write. Set upload-sarif: \"false\" to skip it."
+        fi
 
     - name: Enforce failure threshold
       shell: bash
@@ -453,10 +492,19 @@ runs:
         INPUT_FAIL_ON_SEVERITY: ${{ inputs.fail-on-severity }}
       run: |
         set -euo pipefail
-        if [ "${KLARION_EXIT:-0}" = "1" ]; then
-          echo "::error::Klarion found secrets at or above '${INPUT_FAIL_ON_SEVERITY}'."
-          exit 1
-        elif [ "${KLARION_EXIT:-0}" != "0" ]; then
-          echo "::error::Klarion failed to run (exit ${KLARION_EXIT:-?})."
-          exit 2
-        fi
+        # Fail closed: a missing result is not a pass.
+        case "${KLARION_EXIT:-}" in
+          0) ;;
+          1)
+            echo "::error::Klarion found secrets at or above '${INPUT_FAIL_ON_SEVERITY}'."
+            exit 1
+            ;;
+          "")
+            echo "::error::Klarion did not record a scan result, so this run cannot pass."
+            exit 2
+            ;;
+          *)
+            echo "::error::Klarion failed to run (exit ${KLARION_EXIT})."
+            exit 2
+            ;;
+        esac
