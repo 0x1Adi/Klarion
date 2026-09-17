@@ -1,0 +1,18 @@
+# CredData sample run. [scan]: every file, like gitleaks and detect-secrets
+# (the candidate set and baseline were built this way). [ai]: same settings as
+# benchmark/harness/klarion-ai.toml.
+[scan]
+max_file_size_bytes = 67108864
+ignore_paths = [".klarion/**"]
+
+[ai]
+mode = "on"
+provider = "claude-cli"
+model = "haiku"
+max_batch = 10
+timeout_seconds = 600
+on_error = "fail"            # benchmark integrity: no silent unverified batches
+filter_false_positives = true
+min_confidence = 0.6
+send_secret = true
+max_context_lines = 5

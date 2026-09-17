@@ -1,0 +1,14 @@
+{
+  "name": "klarion",
+  "owner": {
+    "name": "The Klarion Authors",
+    "url": "https://github.com/0x1Adi/Klarion"
+  },
+  "plugins": [
+    {
+      "name": "klarion",
+      "source": "./claude-plugin",
+      "description": "Blocks Claude Code from writing or committing leaked secrets."
+    }
+  ]
+}

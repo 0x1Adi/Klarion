@@ -1,0 +1,4 @@
+# CredData benchmark: scan every file like gitleaks and detect-secrets do.
+[scan]
+max_file_size_bytes = 67108864
+ignore_paths = [".klarion/**"]

@@ -20,20 +20,30 @@ go install github.com/0x1Adi/Klarion/cmd/klarion@latest
 # or: brew install 0x1Adi/tap/klarion
 ```
 
-Set an API key. Klarion requires a model to adjudicate candidates; without one
-the hook falls back to raw entropy output and will flag ordinary identifiers,
-certificates and vendored code:
+Configure a model. Either set an API key:
 
 ```sh
 export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
+or opt in to your Claude Code login in `.klarion.toml` (Klarion never uses it
+unless you set this):
+
+```toml
+[ai]
+provider = "claude-cli"
+```
+
+With no model configured, the hook still blocks provider-issued keys (cloud,
+VCS, SaaS tokens), lets everything else through, and says it could not judge it.
+
 ## Install the plugin
 
-From a Claude Code marketplace that includes this plugin, or locally:
+This repository is its own marketplace:
 
 ```
-/plugin install klarion
+/plugin marketplace add 0x1Adi/Klarion
+/plugin install klarion@klarion
 ```
 
 ## Configuration

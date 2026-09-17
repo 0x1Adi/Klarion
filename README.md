@@ -36,41 +36,45 @@ would have put in front of you, and Klarion judged every one of them and moved o
 
 ## The numbers
 
-<img src="./assets/false-positives.svg" alt="False positives on flask and rails, 3,700 files of clean code. Klarion 0, trufflehog 9, gitleaks 33, ripsecrets 61, detect-secrets 247." width="100%">
+Measured on real repositories against gitleaks 8.30 and detect-secrets 1.5. Method, scripts
+and every caveat are in [benchmark/REPORT.md](./benchmark/REPORT.md#14-addendum--creddata-real-repositories-out-of-sample).
 
-Measured against four scanners on real repositories. Method and raw output are in
-[benchmark/REPORT.md](./benchmark/REPORT.md), and the corpora are pinned so you can rerun it.
+**Out of sample: [CredData](https://github.com/Samsung/CredData).** 337 public repositories,
+15,243 lines labeled as real credentials by Samsung, none of it used to build Klarion.
+Production paths, meaning outside test, mock, example, sample and fixture directories:
 
-Two measurements matter, and they say different things. Both are here because we
-published the first one on its own, were wrong to, and would rather you saw that.
+| | Klarion (claude-cli, haiku) | gitleaks 8.30 | detect-secrets 1.5 |
+| --- | :--: | :--: | :--: |
+| **Recall** | **0.35** (0.30 to 0.40) | 0.21 | 0.35 |
+| **Precision** | **0.89** (0.82 to 0.97) | 0.91 | 0.34 |
+| **F1** | **0.50** | 0.34 | 0.34 |
 
-**On the corpora Klarion was tuned against** — flask and rails at HEAD, 3,700 files
-of real code containing no live secrets. Every finding from every tool was audited
-by hand.
+Klarion's figures are estimates from a stratified sample of 612 model calls, with 95%
+intervals. The other scanners have no model and were scored on the full dataset. Three
+caveats come with these numbers:
 
-| | Klarion | gitleaks | trufflehog | detect-secrets | ripsecrets |
-| --- | :--: | :--: | :--: | :--: | :--: |
-| **False positives** on 3,700 files of clean code | **0** | 33 | 9 | 247 | 61 |
-| **File precision** on the leaky-repo ground truth | **1.00** | 1.00 | 1.00 | 0.96 | 1.00 |
+- **CredData counts test fixtures as real credentials.** 74% of its true lines sit in test
+  directories. On that definition Klarion's recall is 0.09 and gitleaks' is 0.46, because
+  the model we measured dropped all 100 sampled test directory credentials. Generated fixtures there
+  (private keys, JWTs, database URLs) are still dropped; provider issued keys in test paths
+  are now always reported, a change made after this measurement.
+- **The labels came from other scanners.** CredData's reviewers labeled what gitleaks,
+  detect-secrets and five other tools found, so 45% of Klarion's candidates sit on lines
+  nobody labeled and do not count toward precision. If every one of them the model kept
+  were false, precision would still be about 0.77.
+- **One model, one run**, at commit `bf5d7c2`.
 
-**On four ecosystems it had never seen** — spring-boot, terraform, next.js and
-symfony. 59,754 files, no Ruby and no Python.
+**Synthetic secrets: [leaky-repo](https://github.com/Plazmaz/leaky-repo)**, 42 files of dummy
+credentials in real formats. Klarion finds 69% of risk files at file precision 1.00 (F1 0.82).
+detect-secrets finds 55% at 0.96 (F1 0.70), gitleaks 31% at 1.00. Klarion's detection
+stages were designed by reading leaky-repo's misses, so this checks format coverage; it is
+not an unseen test.
 
-| repo | ecosystem | candidates (pre-filter) | findings (AI on) |
-| --- | --- | --: | --: |
-| spring-boot | Java | 930 | 272 |
-| terraform | Go / HCL | 367 | 26 |
-| next.js | TypeScript / JS | 174 | 10 |
-| symfony | PHP | 45 | 8 |
-| **total** | | **1,516** | **316** |
-
-Adjudication removes 79% of what the pre-filter emits on code it has never seen.
-What survives is concentrated in test-fixture key material — see
-[benchmark/REPORT.md](./benchmark/REPORT.md) for the file-by-file breakdown.
-
-Stage 1 is the fastest of the five tools measured on rails at 51 MB. That timing
-predates the current suppression and collapse passes and is being re-measured, so
-we are not quoting a figure until it is.
+**False positives on clean code** (flask and rails, every finding checked by hand): Klarion 9,
+trufflehog 9, gitleaks 33, ripsecrets 61, detect-secrets 247. An older Klarion build scored 0
+because it found less. All 9 are documentation examples (a sample `SECRET_KEY`, form
+`authenticity_token` values) and generator templates with local database defaults
+(`postgres://postgres:postgres@localhost`).
 
 **Those numbers are the AI configuration, and only the AI configuration.** Klarion needs a
 model to work. The entropy and rules pass is a candidate generator, not a detector — its job
@@ -82,11 +86,9 @@ vendored code and long identifiers as readily as it flags secrets.
 Run it with a key. See [AI is required](#ai-is-required) for what the offline path actually
 does, measured.
 
-We do not claim the best F1. On leaky-repo, detect-secrets scores 0.70 to Klarion-AI's
-0.60 and catches 55% of risk files to our 43% — and pays 247 false positives for it. The
-full table, including the rows where we come second, is in
-[benchmark/REPORT.md](./benchmark/REPORT.md). We would rather you read every alert we send
-than ignore all of them.
+Where we come second is in the tables above: on CredData's own definition, which counts test
+fixtures, gitleaks finds more. The full tables are in [benchmark/REPORT.md](./benchmark/REPORT.md).
+We would rather you read every alert we send than ignore all of them.
 
 ## Install
 
@@ -112,6 +114,9 @@ Set a key before your first scan:
 export ANTHROPIC_API_KEY=sk-ant-...   # or OPENAI_API_KEY, or run a local model via ollama
 ```
 
+To adjudicate through your Claude Code login instead of an API key, set `provider =
+"claude-cli"` under `[ai]` in `.klarion.toml`. Klarion never uses that login unless you do.
+
 Klarion looks for a `.klarion.toml` by walking up from your working directory. Without a
 usable model it cannot adjudicate anything, and what you get back is raw entropy output —
 see [AI is required](#ai-is-required).
@@ -127,8 +132,8 @@ model would be unaffordable, so the deterministic pass narrows tens of thousands
 candidates down to a few hundred and the model reads only those. Take the model away and
 what remains is the pre-filter's raw output — which was never meant to be shown to anyone.
 
-Here is what that looks like on four repositories with `--ai-mode off`, none of which were
-used to build Klarion's heuristics:
+Here is what that looked like at v0.2.2 on four repositories with `--ai-mode off`, none of
+which were used to build Klarion's heuristics:
 
 | repo | ecosystem | files | findings with AI off |
 |---|---|---:|---:|
@@ -143,13 +148,15 @@ identifiers — `SseCustomerKeySHA256AttrName` in Go, `applyDecs2301Factory` in 
 An entropy detector cannot tell those from a credential, because on the metric it computes
 they are not different. Only something that reads the surrounding code can.
 
-With adjudication enabled those 1,516 become **316** — a 79% cut. Per corpus:
+With adjudication enabled (v0.2.2) those 1,516 became **316**, a 79% cut. Per corpus:
 spring-boot 930 to 272, terraform 367 to 26, next.js 174 to 10, symfony 45 to 8.
 Not zero, and we would rather print the real number than the one from our best
 corpus. The remainder is almost entirely private keys committed as test fixtures.
 
 If you have no key, use another tool. Klarion without a model will waste your time, and we
-would rather say so here than have you discover it on your first run.
+would rather say so here than have you discover it on your first run. One exception: with
+no model configured, the agent hook still blocks provider issued keys and says it could not
+judge the rest.
 
 ## Why this is different
 
@@ -432,9 +439,11 @@ secret-scan:
 **Claude Code plugin**
 
 Klarion ships a plugin in `claude-plugin/` that wires up both the hook and the MCP server.
+The repository is its own plugin marketplace:
 
 ```
-/plugin install klarion
+/plugin marketplace add 0x1Adi/Klarion
+/plugin install klarion@klarion
 ```
 
 The hook runs `klarion hook --event pre-tool-use` for `Write`, `Edit` and `MultiEdit`, and a

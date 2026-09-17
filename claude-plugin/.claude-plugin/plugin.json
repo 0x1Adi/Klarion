@@ -1,6 +1,6 @@
 {
   "name": "klarion",
-  "version": "0.1.0",
+  "version": "0.3.1",
   "description": "AI-native secret scanner. Blocks the agent from writing or committing leaked secrets, using Rényi-entropy detection plus AI adjudication.",
   "author": {
     "name": "The Klarion Authors",

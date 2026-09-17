@@ -5,7 +5,54 @@ All notable changes to Klarion are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.1] - 2026-09-17
+
+### Added
+
+- **The repository is a Claude Code plugin marketplace.** There was no way to install
+  the plugin short of copying it by hand. Now: `/plugin marketplace add 0x1Adi/Klarion`,
+  then `/plugin install klarion@klarion`.
+
+### Fixed
+
+- **Provider keys under test paths are always reported.** The verifier's test-tree
+  rule called every credential under `test/`, `fixtures/` or `examples/` a generated
+  fixture, live cloud and SaaS keys included, so an integration test holding a real
+  key, often written by an agent, was dropped. On CredData the model dropped all 100
+  sampled test-directory credentials. A provider-issued credential (a vendor rule at
+  high or critical severity, no placeholder marker) under a test path now stays a
+  finding whatever the verdict. Private keys, JWTs, bearer tokens, database URLs and
+  generic matches there are still judged as fixtures.
+- **The verdict cache no longer hands one candidate's verdict to another.** Keys were
+  a hash of rule and value, so a value judged a README example was also suppressed
+  in a production config. With `ai.send_secret = false` it was worse: requests carry
+  the redacted value, and every value under 8 characters redacts to `****`, so all
+  short values under one rule shared a single verdict, within one scan as well as
+  across runs. Keys now cover the file, the context (line numbers excluded, so an
+  edit above a candidate still hits), related fields and decoded text, computed from
+  the raw finding. The ledger scope includes a hash of the system prompt, so a prompt
+  change discards old verdicts. Ledger version 2; older ledgers start empty.
+- **Hook: paths are judged inside the project.** Claude Code sends absolute paths, so
+  a parent directory named `examples`, `test` or `demo` marked every file as a
+  fixture. Paths are now relative to the session's `cwd`.
+- **Hook: the plugin's Bash matcher never ran.** `hooks.json` registered it under
+  `PreToolUse:Bash`, which is not a hook event. It is now a matcher under `PreToolUse`.
+- **Hook: an allow that skipped scanning says so.** When the hook cannot scan (bad
+  input, a config error), the allow decision carries the reason, which Claude Code
+  shows the user.
+
+### Changed
+
+- **The hook no longer allows every write when no AI provider is configured.** It
+  checks offline and blocks provider-issued credentials only, so an unconfigured
+  install still stops a live cloud key without blocking code it cannot judge. When
+  it lets unjudged candidates through, the allow decision says no AI provider is
+  configured. It never falls back to a model nobody configured: a `claude` login on
+  `PATH` is used only with `ai.provider = "claude-cli"`. With `ai.cache_path` unset
+  it caches verdicts in the user cache directory, so repeated edits to one file do
+  not repeat model calls.
+
+## [0.3.0] - 2026-09-17
 
 ### Added
 

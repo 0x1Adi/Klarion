@@ -310,7 +310,8 @@ func reportProgress(done, total int, started time.Time) {
 // candidate's position within its batch (the id the model echoes back).
 func buildRequest(index int, f *finding.Finding, cfg *config.AIConfig) Request {
 	secret, related, decoded := f.Secret, f.Related, f.Decoded
-	ctxText := capContext(f.Context, cfg.MaxContextLines, f.Line)
+	rawCtx := capContext(f.Context, cfg.MaxContextLines, f.Line)
+	ctxText := rawCtx
 	if !cfg.SendSecret {
 		// Strict privacy: never let the raw value leave the process.
 		ctxText = finding.RedactInText(ctxText, f.Secret)
@@ -332,6 +333,7 @@ func buildRequest(index int, f *finding.Finding, cfg *config.AIConfig) Request {
 		Occurrences: max(f.Occurrences, 1),
 		Related:     related,
 		Decoded:     decoded,
+		key:         candidateKey(f.RuleID, f.FilePath, f.Secret, rawCtx, f.Related, f.Decoded, max(f.Occurrences, 1)),
 	}
 }
 
@@ -399,6 +401,15 @@ func FilterFalsePositives(findings []finding.Finding, cfg *config.AIConfig) (kep
 	}
 	for _, f := range findings {
 		if f.Verdict.Status == finding.VerdictFalsePositive && f.Verdict.Confidence >= cfg.MinConfidence {
+			if IsProviderCredential(&f) && finding.IsTestPath(f.FilePath) {
+				// A test path is no evidence that a provider-issued key is fake:
+				// integration tests are where live keys get committed, often by
+				// an agent nobody is watching. Keep it visible, whatever the verdict.
+				f.Verdict.Status = finding.VerdictUncertain
+				f.Verdict.Reason = "kept: provider credential under a test path; tests do not make it a fixture"
+				kept = append(kept, f)
+				continue
+			}
 			f.Suppressed = true
 			suppressed = append(suppressed, f)
 			continue
@@ -406,4 +417,23 @@ func FilterFalsePositives(findings []finding.Finding, cfg *config.AIConfig) (kep
 		kept = append(kept, f)
 	}
 	return kept, suppressed
+}
+
+// IsProviderCredential reports whether f is a provider-issued credential: a
+// vendor rule (not generic, URL, credential-file, key, token or database) at
+// high or critical severity, with no placeholder marker in the value. These are
+// the keys that are live wherever they sit. Generated material, which test
+// trees are full of (private keys, JWTs, bearer tokens, database URLs, generic
+// matches), is left to the verifier.
+func IsProviderCredential(f *finding.Finding) bool {
+	if len(f.Tags) == 0 || f.Severity.Rank() < finding.SeverityHigh.Rank() {
+		return false
+	}
+	for _, t := range f.Tags {
+		switch t {
+		case "generic", "url", "credential-file", "key", "token", "database":
+			return false
+		}
+	}
+	return !containsAny(strings.ToLower(f.Secret), placeholderMarkers)
 }

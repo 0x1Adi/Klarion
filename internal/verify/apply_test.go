@@ -490,3 +490,40 @@ func TestApplyReportsProgressBeforeFirstBatch(t *testing.T) {
 		t.Errorf("progress must end on a complete 100%% line, got %q", last)
 	}
 }
+
+// A provider key under a test path stays visible whatever the verdict; generated
+// material there can still be suppressed, and the verdict stands outside tests.
+func TestFilterKeepsProviderCredentialsInTestPaths(t *testing.T) {
+	fp := finding.Verdict{Status: finding.VerdictFalsePositive, Confidence: 0.8, Reason: "test fixture"}
+	aws := func(path, secret string) finding.Finding {
+		return finding.Finding{RuleID: "aws-secret-access-key", FilePath: path, Secret: secret,
+			Severity: finding.SeverityCritical, Tags: []string{"cloud", "aws"}, Verdict: fp}
+	}
+	live := "wJalrXUtnFEMIK7MDENG" + "bPxRfiCYzQ3Mv8Tk"
+	cases := []struct {
+		name string
+		f    finding.Finding
+		kept bool
+	}{
+		{"provider key in tests", aws("tests/integration/test_s3.py", live), true},
+		{"provider key outside tests", aws("src/app.py", live), false},
+		{"placeholder value in tests", aws("tests/test_s3.py", "wJalrXUtnFEMIK7MDENG"+"bPxRfiCYEXAMPLEKEY"), false},
+		{"private key in tests", finding.Finding{RuleID: "private-key", FilePath: "testdata/server.pem", Secret: "MIIEvQIBADANBg",
+			Severity: finding.SeverityCritical, Tags: []string{"key"}, Verdict: fp}, false},
+		{"generic match in tests", finding.Finding{RuleID: "generic-high-entropy", FilePath: "tests/test_s3.py", Secret: "Zk9Qp2Vx7Lm4Rn8Ty1Wc",
+			Severity: finding.SeverityHigh, Tags: []string{"generic"}, Verdict: fp}, false},
+		{"medium vendor rule in tests", finding.Finding{RuleID: "stripe-publishable-key", FilePath: "tests/test_pay.py", Secret: "pk_live_" + "51Hq2Zk9Qp2Vx7",
+			Severity: finding.SeverityMedium, Tags: []string{"payments", "stripe"}, Verdict: fp}, false},
+	}
+	cfg := &config.AIConfig{FilterFalsePositives: true, MinConfidence: 0.6}
+	for _, tc := range cases {
+		kept, suppressed := FilterFalsePositives([]finding.Finding{tc.f}, cfg)
+		if got := len(kept) == 1; got != tc.kept || len(kept)+len(suppressed) != 1 {
+			t.Errorf("%s: kept = %d, suppressed = %d, want kept %v", tc.name, len(kept), len(suppressed), tc.kept)
+			continue
+		}
+		if tc.kept && (kept[0].Verdict.Status != finding.VerdictUncertain || kept[0].Suppressed) {
+			t.Errorf("%s: kept finding should be uncertain and unsuppressed, got %+v", tc.name, kept[0].Verdict)
+		}
+	}
+}

@@ -232,3 +232,46 @@ func TestLedgerDisabledByDefault(t *testing.T) {
 		t.Errorf("wrote %d file(s) with persistence disabled", len(entries))
 	}
 }
+
+// A prompt change must not replay the verdicts an older prompt produced.
+func TestLedgerIsScopedToThePrompt(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "verdicts.json")
+	batch := []Request{{RuleID: "generic-high-entropy", Secret: "Zk9Qp2Vx7Lm4Rn8Ty1Wc"}}
+
+	c1 := newCache(newScopedFake("fake:model-1", secretVerdict), path)
+	if _, err := c1.Verify(context.Background(), batch); err != nil {
+		t.Fatal(err)
+	}
+	if err := c1.Close(); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc ledger
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if want := "fake:model-1 prompt:" + promptVersion; doc.Scope != want {
+		t.Fatalf("scope = %q, want %q", doc.Scope, want)
+	}
+
+	// Same model, older prompt.
+	doc.Scope = "fake:model-1 prompt:000000000000"
+	raw, _ = json.Marshal(doc)
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	calls := 0
+	c2 := newCache(newScopedFake("fake:model-1", func(r Request) finding.Verdict {
+		calls++
+		return secretVerdict(r)
+	}), path)
+	if _, err := c2.Verify(context.Background(), batch); err != nil {
+		t.Fatal(err)
+	}
+	if calls != 1 {
+		t.Errorf("provider calls = %d, want 1: a ledger from another prompt was reused", calls)
+	}
+}

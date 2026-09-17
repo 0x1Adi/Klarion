@@ -16,6 +16,24 @@
 
 ## TL;DR
 
+> **Updated 2026-09-17.** The bullets under this box describe the 2026-07-09 build. Detection
+> has changed since (see CHANGELOG), so that build's clean-corpus count of 0 and leaky-repo
+> recall of 43% are not current. Current numbers:
+>
+> - **CredData, real repositories, out of sample ([§14](#14-addendum--creddata-real-repositories-out-of-sample)):**
+>   on production paths Klarion (claude-cli, haiku) recalls 0.35 (95% CI 0.30 to 0.40) at
+>   precision 0.89 (0.82 to 0.97); gitleaks 8.30 0.21 at 0.91; detect-secrets 1.5 0.35 at 0.34.
+>   On CredData's own definition, which counts test fixtures as real, Klarion recalls 0.09 and
+>   gitleaks 0.46.
+> - **leaky-repo (synthetic secrets, in sample):** Klarion finds 69% of risk files at file
+>   precision 1.00, F1 0.82 (`bf5d7c2`, claude-cli haiku); detect-secrets 55% at 0.96, F1 0.70.
+> - **flask + rails false positives (current detection, `bf5d7c2`, claude-cli haiku):** 9 (flask 1,
+>   rails 8), each checked by hand: documentation examples (Flask's sample `SECRET_KEY`, Rails
+>   guide `secret_key_base` and `authenticity_token` values) and generator templates with local
+>   database defaults. trufflehog 9, gitleaks 33, ripsecrets 61, detect-secrets 247 (§3). The
+>   2026-07-09 build's 0 came from finding less; the test path rule added after this run keeps
+>   none of these corpora's suppressed candidates.
+
 - **Precision:** Klarion-AI is the only tool with **zero findings on clean real-world corpora** (flask + rails, 54 MB, 3,700+ files). Every other tool reports 9–247 noise findings there. This is a property of the **AI configuration**, which is the only supported way to run Klarion. The §10 structural suppressors also bring the no-AI path to 0 *on these two corpora*, but that result does not generalize — see [§12](#12-addendum--the-no-ai-path-does-not-generalize).
 - **Recall:** On the leaky-repo ground truth, Klarion-AI detects 43% of risk files with **perfect file precision (1.00)** — second-best recall behind detect-secrets (55%), which pays for it with 247 clean-corpus false positives.
 - **F1 (leaky, file level):** Klarion-no-AI 0.74 (after the [§10](#10-addendum--structural-suppressors-for-the-no-ai-path) fixes) > detect-secrets 0.70 > **Klarion-AI 0.60** > gitleaks 0.47 > trufflehog 0.32 > ripsecrets 0.17. The no-AI row is **measured on corpora that its own suppressors were tuned against** and is reported for diagnostic honesty, not as a recommendation; [§12](#12-addendum--the-no-ai-path-does-not-generalize) shows it collapsing on unseen repositories. Among shippable configurations, Klarion-AI has the best precision/recall balance in the study.
@@ -26,11 +44,11 @@
 
 ## 1. Methodology
 
-### Datasets (all real data)
+### Datasets (real repositories; leaky-repo's secrets are synthetic)
 
 | Corpus | What it is | Role |
 |---|---|---|
-| [leaky-repo](https://github.com/Plazmaz/leaky-repo) | Community-standard benchmark: 44 files of real-format secrets (.npmrc, .ssh keys, wp-config.php, .env, …) with an official per-file ground truth (`.leaky-meta/secrets.csv`: 96 "risk" + 76 "informative" values; 42 files carry risk) | Recall / accuracy |
+| [leaky-repo](https://github.com/Plazmaz/leaky-repo) | Community-standard benchmark: 44 files in real credential formats (.npmrc, .ssh keys, wp-config.php, .env, …) holding **synthetic** secrets — its README says none are real, every value was randomized — with an official per-file ground truth (`.leaky-meta/secrets.csv`: 96 "risk" + 76 "informative" values; 42 files carry risk) | Recall / accuracy |
 | flask @ HEAD (3.2 MB) | Real OSS repo, shallow clone | False-positive corpus |
 | rails @ HEAD (51 MB) | Real OSS repo, shallow clone | False-positive corpus + speed at scale |
 | leaky-repo git history (25 commits) | Real multi-year commit history | Git-history mode comparison |
@@ -529,3 +547,108 @@ individually adjudicated by a person.
 **Corpora drift.** These are HEAD clones from 2026-09-15. Re-running later will
 not reproduce these counts exactly; the seed fixes the sample, not the upstream
 repositories.
+
+## 14. Addendum — CredData, real repositories, out of sample
+
+**Date:** 2026-09-16 · **Klarion:** `bf5d7c2`, claude-cli verifier, haiku · **Compared:** gitleaks 8.30.0 (built from source with Go 1.24), gitleaks 8.16.0, detect-secrets 1.5.0
+
+### Why this was measured
+
+leaky-repo holds synthetic secrets and shaped Klarion's detection stages, so it cannot show
+how Klarion does on code it has never seen. SecretBench, which holds real leaks, is gated
+behind a data protection agreement. CredData is open: Samsung's labeled lines from 337
+public repositories, with every true value replaced by a random string of the same shape.
+
+### Method
+
+- **Dataset.** CredData commit `c09c0c52`: 11,030 files, 1 GB. Labeled line ranges: 15,243
+  true (T), 45,254 false (F), 3,977 unknown (X). Built with CredData's own
+  `download_data.py --skip_download` after fetching only the labeled files
+  (`benchmark/creddata/fetch_partial.py`). No labeled file was missing.
+- **Detection stage, full dataset.** `klarion scan --no-ai` scanning every file (no ignore
+  paths, 64 MiB size cap, like the other two tools), `gitleaks dir`, `detect-secrets scan
+  --all-files`. A finding hits a labeled range when its line span intersects it. Precision
+  counts labeled lines only, as CredData's own benchmark does; X counts as false.
+- **Model stage, stratified sample.** 612 candidates in five strata (seed 7): 150 true
+  production lines, 100 true test lines, 150 false production lines, 75 false test lines,
+  100 candidates on unlabeled lines. A baseline suppressed every other candidate, so the
+  model adjudicated exactly the sample; this was checked before the run. Estimates weight
+  each stratum's keep rate by its population, and intervals come from a stratified
+  bootstrap. Estimator check: on the offline heuristic's output the same estimator gave
+  0.351 / 0.375 against the full-population 0.358 / 0.359 (production recall / precision),
+  inside its intervals.
+- **Views.** *Production* is a path outside CredData's test-purpose scope directories (test,
+  mock, example, sample, fixture). *No UUID* drops true lines whose only category is UUID;
+  the sampled ones are COM GUIDs, CI badge ids and KMS ARNs.
+
+### Result — detection stage (full dataset, no model)
+
+Recall / precision. Candidate precision is not Klarion's precision: candidates are what the
+model reads.
+
+| tool | findings | all lines | production | production, no UUID | files |
+|---|---:|---|---|---|---|
+| Klarion candidates | 26,706 | 0.486 / 0.562 | 0.612 / 0.406 | 0.761 / 0.406 | 0.757 / 0.599 |
+| gitleaks 8.30 | 8,350 | 0.460 / 0.861 | 0.211 / 0.908 | 0.263 / 0.908 | 0.337 / 0.946 |
+| gitleaks 8.16 | 7,736 | 0.449 / 0.868 | 0.195 / 0.714 | 0.242 / 0.713 | 0.303 / 0.919 |
+| detect-secrets 1.5 | 16,164 | 0.253 / 0.497 | 0.348 / 0.340 | 0.435 / 0.340 | 0.537 / 0.567 |
+
+Wall clock on 2 vCPU: Klarion 87 s, gitleaks 8.30 392 s, detect-secrets 3,432 s.
+
+### Result — with the model (612 candidates, 1,007 s)
+
+| stratum | sampled | kept | keep rate (95% CI) |
+|---|---:|---:|---|
+| true, production | 150 | 86 | 0.57 (0.49 to 0.65) |
+| true, test | 100 | 0 | 0.00 (0.00 to 0.04) |
+| false, production | 150 | 7 | 0.05 (0.02 to 0.09) |
+| false, test | 75 | 0 | 0.00 (0.00 to 0.05) |
+| unlabeled | 100 | 2 | 0.02 (0.01 to 0.07) |
+
+| over all of CredData | Klarion + model (95% CI) | gitleaks 8.30 | detect-secrets 1.5 |
+|---|---|---|---|
+| production recall | **0.351** (0.302 to 0.400) | 0.211 | 0.348 |
+| production precision | **0.894** (0.822 to 0.966) | 0.908 | 0.340 |
+| production recall, no UUID | **0.437** (0.376 to 0.497) | 0.263 | 0.435 |
+| recall, all true lines | 0.090 (0.077 to 0.102) | 0.460 | 0.253 |
+
+### What the model did
+
+- **Dropped 64 of 150 true production lines:** 39 documentation examples, 17 with a test
+  signal that CredData's scope split misses (`spec/` directories, for example), 5
+  identifiers or hashes, 3 commented out. Detection found 61% of true production lines and
+  the model kept 57% of those.
+- **Kept 7 of 150 false production lines:** 4 are CredData X, weak passwords such as
+  `PASSWORD: '123456'` that the prompt calls secrets on purpose; 1 private key inside a
+  YAML comment; 2 clear false positives (a `credhub/password` comment and a Jasypt
+  `ENC(...)` value).
+- **Dropped all 100 sampled test directory credentials** under prompt rule 5. After this
+  run, provider-issued keys under test paths are always reported (see CHANGELOG), while
+  generated fixtures there are still dropped. That change is not re-measured here.
+
+### Limitations
+
+**Label bias.** CredData's candidates came from CredSweeper, credential-digger,
+detect-secrets, gitleaks, shhgit, trufflehog and gitrob, then human review. gitleaks has 232
+findings on unlabeled lines; Klarion has 12,139, 45% of its candidates. Those are excluded
+from precision, which favors the labeling tools on both metrics. If every unlabeled line
+the model kept (about 243) were false, production precision would be about 0.77.
+
+**Definitions differ.** CredData labels every credential in a test directory true (its rule
+1), and 74% of its true lines are there. Klarion's prompt treats generated test material as
+fixtures.
+
+**Line-level counts are dominated by a few files.** One OpenSSL NIST test-vector file holds
+2,767 true "Key" lines. Quote the production or file views.
+
+**Obfuscation.** Only true values are replaced with random strings; false and unknown values
+keep their original text, so telling a placeholder from a real value is easier here than in
+the wild.
+
+**One model, one run, sampled.** Groq, OpenAI and local models were not measured on CredData.
+Files over 8 MiB were not sampled (at most 1.2% of each labeled stratum, 2.2% of unlabeled).
+
+### Reproduce
+
+`benchmark/creddata/README.txt`: fetch and build (about 15 minutes), scan, score, sample and
+score the model run. The dataset is not committed.

@@ -3,19 +3,23 @@ package verify
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"sync"
 
 	"github.com/0x1Adi/Klarion/internal/finding"
 )
 
 // cacheVerifier decorates another Verifier, memoizing verdicts keyed by a
-// stable hash of (ruleID, secret) so repeated candidates cost one provider call
-// rather than several. It is safe for concurrent use.
+// stable hash of the candidate as the model saw it (see cacheKey) so repeated
+// candidates cost one provider call rather than several. It is safe for
+// concurrent use.
 //
 // With a path set it also persists across runs, which is what makes CI
 // affordable: an unchanged repository re-adjudicates nothing, and a pull
@@ -23,7 +27,8 @@ import (
 type cacheVerifier struct {
 	inner Verifier
 	path  string
-	scope string // provider:model — a different model gets a different cache
+	label string // provider:model, shown on cached verdicts
+	scope string // label plus prompt version: a different model or prompt gets a different cache
 
 	mu      sync.Mutex
 	entries map[string]finding.Verdict
@@ -44,14 +49,15 @@ type scopedVerifier interface {
 // loaded (a missing, corrupt, or differently-scoped file simply starts empty —
 // a stale cache must never break a scan) and flushed by Close.
 func newCache(inner Verifier, path string) *cacheVerifier {
-	scope := inner.Name()
+	label := inner.Name()
 	if s, ok := inner.(scopedVerifier); ok {
-		scope = s.cacheScope()
+		label = s.cacheScope()
 	}
 	c := &cacheVerifier{
 		inner:   inner,
 		path:    path,
-		scope:   scope,
+		label:   label,
+		scope:   label + " prompt:" + promptVersion,
 		entries: make(map[string]finding.Verdict),
 	}
 	if path != "" {
@@ -64,17 +70,41 @@ func newCache(inner Verifier, path string) *cacheVerifier {
 // provenance stays visible.
 func (c *cacheVerifier) Name() string { return c.inner.Name() + "+cache" }
 
-// cacheKey is a stable, collision-resistant key for a candidate. RuleID is
-// included so the same string under different rules can differ.
+// promptVersion is part of the ledger scope, so verdicts written under an
+// older system prompt are discarded instead of replayed.
+var promptVersion = func() string {
+	sum := sha256.Sum256([]byte(systemPrompt))
+	return hex.EncodeToString(sum[:6])
+}()
+
+// cacheKey identifies what the model judged: rule, file, value, context,
+// related fields, decoded text and span. Context line numbers are stripped, so
+// an edit above a candidate keeps its verdict. The key is a one-way hash, so a
+// persisted ledger discloses no values.
 //
-// The key is a one-way hash of the secret, so a persisted ledger discloses
-// nothing about the values it covers — and it is path-independent, so moving a
-// file does not throw away its verdict.
+// It used to be (rule, value) alone. A value judged a README example then also
+// suppressed the same value in a production config, and with send_secret=false
+// every short value under one rule shared a single verdict, because the request
+// carries the redacted form ("****"). buildRequest therefore sets the key from
+// the raw finding; requests built elsewhere (MCP, tests) hash their own fields.
 func cacheKey(r Request) string {
+	if r.key != "" {
+		return r.key
+	}
+	return candidateKey(r.RuleID, r.FilePath, r.Secret, r.Context, r.Related, r.Decoded, r.Occurrences)
+}
+
+var contextLineNumber = regexp.MustCompile(`(?m)^\d+: `)
+
+func candidateKey(rule, file, secret, context, related, decoded string, occurrences int) string {
 	h := sha256.New()
-	h.Write([]byte(r.RuleID))
-	h.Write([]byte{0})
-	h.Write([]byte(r.Secret))
+	for _, s := range []string{rule, file, secret, contextLineNumber.ReplaceAllString(context, ""),
+		related, decoded, strconv.Itoa(occurrences)} {
+		var n [8]byte // length-prefixed, so no field can bleed into the next
+		binary.BigEndian.PutUint64(n[:], uint64(len(s)))
+		h.Write(n[:])
+		h.Write([]byte(s))
+	}
 	return hex.EncodeToString(h.Sum(nil))
 }
 
@@ -155,7 +185,8 @@ type ledgerVerdict struct {
 	Confidence float64               `json:"confidence"`
 }
 
-const ledgerVersion = 1
+// ledgerVersion 2: keys cover file and context, scope covers the prompt.
+const ledgerVersion = 2
 
 // cachedReason marks a verdict that came from the ledger rather than a fresh
 // adjudication, so a report never implies the model was consulted this run.
@@ -255,7 +286,7 @@ func (c *cacheVerifier) load() {
 			Status:     v.Status,
 			Confidence: v.Confidence,
 			Reason:     cachedReason,
-			Verifier:   c.scope + "+cache",
+			Verifier:   c.label + "+cache",
 		}
 	}
 }

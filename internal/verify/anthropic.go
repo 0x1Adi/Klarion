@@ -54,10 +54,13 @@ INPUT. Each candidate is a JSON object:
 
 DECISION PROCEDURE. Apply in order; stop at the first rule that matches.
 
-1. Structurally a credential? A named token format (AKIA..., ghp_..., sk-...,
-   xox?-..., AIza..., -----BEGIN ... PRIVATE KEY-----) or a password embedded in a
-   URL (scheme://user:<password>@host). If yes and is_test_path is true, go to
-   rule 5; otherwise "secret".
+1. Structurally a credential? A provider-issued token format (AKIA..., ghp_...,
+   sk-..., xox?-..., AIza...) is "secret" unless its value is an obvious
+   placeholder (rule 4), even when is_test_path is true: a test path is no
+   evidence that such a key is fake, and integration tests are where live keys
+   leak. A private key block (-----BEGIN ... PRIVATE KEY-----) or a password in a
+   URL (scheme://user:<password>@host): if is_test_path is true go to rule 5,
+   otherwise "secret".
 2. Structurally a NON-secret identifier? UUID, git SHA, semver, content hash
    (sha256-/sha384-/integrity=), a PUBLIC key or certificate body, a bcrypt/MD5/
    SHA digest, or base64 that decodes to readable non-credential text. When
@@ -69,12 +72,14 @@ DECISION PROCEDURE. Apply in order; stop at the first rule that matches.
    JavaScript. -> "false_positive".
 4. An obvious placeholder or documentation value? your-api-key, XXXX, changeme,
    <token>, foo/bar, example.com, 000000, lorem. -> "false_positive".
-5. Real key material in a test tree? When is_test_path is true AND the path or
-   filename says test/sample/example/fixture, a private key or credential there is
-   a generated fixture, not a live one -> "false_positive", confidence at most 0.8.
-   This applies whether block_type is "key_block" or the key is embedded as a
-   string literal inside a test source file (a _test.go, *Tests.java, *.spec.ts).
-   If the path carries NO test signal -> "secret".
+5. Generated material in a test tree? When is_test_path is true AND the path or
+   filename says test/sample/example/fixture, a private key, certificate, JWT,
+   bearer token, database URL or generic high-entropy value there is a generated
+   fixture, not a live one -> "false_positive", confidence at most 0.8. This
+   applies whether block_type is "key_block" or the value is a string literal in
+   a test source file (a _test.go, *Tests.java, *.spec.ts). It never applies to
+   the provider-issued tokens of rule 1. If the path carries NO test signal ->
+   "secret".
 6. Otherwise judge the assignment in context. A literal bound to a password,
    passphrase, secret, token or credential name, passed as the password of a login
    call, or a record in a credential store file (rule_id credential-file-entry) is a

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/0x1Adi/Klarion/internal/config"
 	"github.com/0x1Adi/Klarion/internal/finding"
 )
 
@@ -65,4 +66,49 @@ func (c *countingVerifier) Verify(_ context.Context, batch []Request) ([]finding
 		out[i] = finding.Verdict{Status: c.status, Confidence: 0.9, Verifier: "counting"}
 	}
 	return out, nil
+}
+
+// The cache must never hand one candidate's verdict to a different candidate.
+func TestCacheKeySeparatesCandidates(t *testing.T) {
+	redact := &config.AIConfig{SendSecret: false, MaxContextLines: 3}
+	mk := func(file, secret string, line int, context string) finding.Finding {
+		return finding.Finding{RuleID: "generic-password-assignment", FilePath: file, Secret: secret, Line: line, Context: context}
+	}
+	cases := []struct {
+		name   string
+		a, b   finding.Finding
+		shared bool
+	}{
+		// send_secret=false sends both as "****"; the old (rule, value) key merged them.
+		{"different short values, redacted", mk("app.py", "hunter2", 3, "3: pw = hunter2"), mk("app.py", "Zq9!x7", 3, "3: pw = Zq9!x7"), false},
+		{"same value, docs vs prod config", mk("README.md", "hunter2", 3, "3: pw = hunter2"), mk("config/prod.py", "hunter2", 3, "3: pw = hunter2"), false},
+		{"same value, different surroundings", mk("app.py", "hunter2", 3, "2: # example\n3: pw = hunter2"), mk("app.py", "hunter2", 3, "2: db = connect()\n3: pw = hunter2"), false},
+		{"lines moved by an edit above", mk("app.py", "hunter2", 3, "2: x = 1\n3: pw = hunter2"), mk("app.py", "hunter2", 9, "8: x = 1\n9: pw = hunter2"), true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			c := newCache(&fakeVerifier{name: "fake", fn: func(Request) finding.Verdict {
+				calls++
+				return finding.Verdict{Status: finding.VerdictFalsePositive, Confidence: 0.9}
+			}}, "")
+			for _, f := range []finding.Finding{tc.a, tc.b} {
+				if _, err := c.Verify(context.Background(), []Request{buildRequest(0, &f, redact)}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			want := 2
+			if tc.shared {
+				want = 1
+			}
+			if calls != want {
+				t.Errorf("provider calls = %d, want %d", calls, want)
+			}
+		})
+	}
+	// Sanity: the first case really sends identical redacted requests.
+	a, b := cases[0].a, cases[0].b
+	if ra, rb := buildRequest(0, &a, redact), buildRequest(0, &b, redact); ra.Secret != rb.Secret || ra.Context != rb.Context {
+		t.Fatalf("precondition: redacted requests differ (%q vs %q)", ra.Secret, rb.Secret)
+	}
 }

@@ -42,6 +42,10 @@ type Request struct {
 	// Decoded is "<encoding>: <text>" when the candidate is, or was found
 	// inside, encoded data. The model judges the decoded text.
 	Decoded string `json:"decoded,omitempty"`
+
+	// key is the verdict-cache key, computed by buildRequest from the raw
+	// finding. Unexported, so it never reaches a provider.
+	key string
 }
 
 // Verifier adjudicates a batch of candidates. Implementations must return

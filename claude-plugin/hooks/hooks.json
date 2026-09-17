@@ -10,9 +10,7 @@
             "timeout": 60
           }
         ]
-      }
-    ],
-    "PreToolUse:Bash": [
+      },
       {
         "matcher": "Bash",
         "hooks": [

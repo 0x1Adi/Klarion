@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/0x1Adi/Klarion/internal/finding"
+	"github.com/0x1Adi/Klarion/internal/verify"
 )
 
 // hookInput is the subset of the Claude Code PreToolUse hook payload we read.
@@ -83,12 +85,30 @@ func runHook(ctx context.Context, in io.Reader, out io.Writer) error {
 	var ti toolInput
 	_ = json.Unmarshal(hi.ToolInput, &ti)
 
+	// An agent edits the same files repeatedly; persisting verdicts keeps the
+	// hook from re-adjudicating identical candidates on every edit.
+	if cfg.AI.CachePath == "" {
+		if dir, err := os.UserCacheDir(); err == nil {
+			cfg.AI.CachePath = filepath.Join(dir, "klarion", "hook-verdicts.json")
+		}
+	}
 	p, err := newPipeline(cfg)
+	offline := false
+	if err != nil && !strings.EqualFold(cfg.AI.Mode, "off") {
+		// No AI provider. Allowing every write would make an unconfigured
+		// install protect nothing, so check offline and block only
+		// provider-issued keys, which never need a model to judge. Never fall
+		// back to a model the operator did not configure (such as a local
+		// `claude` login): that would send code to an account nobody chose.
+		cfg.AI.Mode = "off"
+		if p, err = newPipeline(cfg); err == nil {
+			offline = true
+			fmt.Fprintln(os.Stderr, "klarion: no AI provider available; blocking provider credentials only")
+		}
+	}
 	if err != nil {
 		return hookAllow(out, cfg.Hook.FailOpen, fmt.Sprintf("pipeline error: %v", err))
 	}
-	// An agent edits the same files repeatedly; persisting verdicts keeps the
-	// hook from re-adjudicating identical candidates on every keystroke.
 	defer p.Close()
 
 	path, text := extractScanTarget(hi, ti)
@@ -107,6 +127,19 @@ func runHook(ctx context.Context, in io.Reader, out io.Writer) error {
 
 	blockOn := finding.ParseSeverity(cfg.Hook.BlockOn)
 	blocking := filterSeverity(active, blockOn)
+	if offline {
+		var provider []finding.Finding
+		for i := range blocking {
+			if verify.IsProviderCredential(&blocking[i]) {
+				provider = append(provider, blocking[i])
+			}
+		}
+		blocking = provider
+		if len(blocking) == 0 && len(active) > 0 {
+			return writeDecision(out, "allow", fmt.Sprintf("Klarion could not judge %d candidate(s): no AI provider "+
+				"is configured (set an API key or ai.provider). Offline, only provider keys are blocked.", len(active)))
+		}
+	}
 	if len(blocking) == 0 {
 		return hookAllow(out, true, "")
 	}
@@ -128,6 +161,14 @@ func extractScanTarget(hi hookInput, ti toolInput) (path, text string) {
 	path = ti.FilePath
 	if path == "" {
 		path = "<agent-write>"
+	} else if hi.CWD != "" && filepath.IsAbs(path) {
+		// Judge the path inside the project. Claude Code sends absolute paths,
+		// and a parent directory named "examples" or "test" would otherwise
+		// mark every file as a fixture.
+		if rel, err := filepath.Rel(hi.CWD, path); err == nil && rel != ".." &&
+			!strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			path = rel
+		}
 	}
 	switch {
 	case ti.Content != "":
@@ -170,12 +211,17 @@ func blockReason(fs []finding.Finding) string {
 }
 
 // hookAllow emits an allow decision. When failOpen is false and reason is set,
-// it instead denies (used when the operator opted out of fail-open).
+// it instead denies (used when the operator opted out of fail-open). A fail-open
+// allow carries the reason, which Claude Code shows the user, so a scanner that
+// silently stopped scanning is visible.
 func hookAllow(out io.Writer, failOpen bool, reason string) error {
-	if !failOpen && reason != "" {
+	if reason == "" {
+		return writeDecision(out, "allow", "")
+	}
+	if !failOpen {
 		return writeDecision(out, "deny", "Klarion could not verify safety: "+reason)
 	}
-	return writeDecision(out, "allow", "")
+	return writeDecision(out, "allow", "Klarion did not scan this change: "+reason)
 }
 
 func writeDecision(out io.Writer, decision, reason string) error {

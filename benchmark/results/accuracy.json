@@ -3939,83 +3939,72 @@
   },
   "klarion-ai": {
     "leaky": {
-      "total_findings": 72,
-      "files_covered": 18,
+      "total_findings": 53,
+      "files_covered": 29,
       "gt_files": 44,
-      "file_coverage_pct": 40.91,
-      "capped_finds": 32,
+      "file_coverage_pct": 65.91,
+      "capped_finds": 53,
       "total_expected": 175,
-      "find_coverage_pct": 18.29,
-      "overage_fp_in_gt_files": 40,
+      "find_coverage_pct": 30.29,
+      "overage_fp_in_gt_files": 0,
       "out_of_gt_files_flagged": [],
       "out_of_gt_findings": 0,
       "risk_files_total": 42,
-      "risk_files_detected": 18,
+      "risk_files_detected": 29,
       "risk_files_missed": [
         ".esmtprc",
-        ".ftpconfig",
-        ".git-credentials",
-        ".idea/WebServers.xml",
-        ".mozilla/firefox/logins.json",
-        ".netrc",
         "cloud/heroku.json",
         "config",
-        "db/.pgpass",
         "db/dbeaver-data-sources.xml",
         "db/dump.sql",
-        "db/mongoid.yml",
-        "db/robomongo.json",
+        "etc/shadow",
         "filezilla/filezilla.xml",
         "filezilla/recentservers.xml",
         "misc-keys/putty-example.ppk",
+        "proftpdpasswd",
         "ventrilo_srv.ini",
-        "web/django/settings.py",
         "web/js/salesforce.js",
-        "web/ruby/secrets.yml",
-        "web/var/www/.env",
-        "web/var/www/public_html/.htpasswd",
-        "web/var/www/public_html/config.php",
-        "web/var/www/public_html/wp-config.php"
+        "web/var/www/public_html/.htpasswd"
       ],
       "file_precision": 1.0,
-      "risk_file_recall": 0.4286,
-      "file_f1": 0.6,
+      "risk_file_recall": 0.6905,
+      "file_f1": 0.8169,
       "per_file": [
         {
           "file": ".bash_profile",
           "expected": 11,
           "risk": 6,
-          "found": 5
+          "found": 3
         },
         {
           "file": ".bashrc",
           "expected": 6,
           "risk": 3,
-          "found": 4
+          "found": 2
         },
         {
           "file": ".docker/.dockercfg",
           "expected": 4,
           "risk": 2,
-          "found": 2
+          "found": 1
         },
         {
           "file": ".docker/config.json",
           "expected": 4,
           "risk": 2,
-          "found": 2
+          "found": 1
         },
         {
           "file": ".mozilla/firefox/logins.json",
           "expected": 28,
           "risk": 8,
-          "found": 0
+          "found": 4
         },
         {
           "file": ".ssh/id_rsa",
           "expected": 1,
           "risk": 1,
-          "found": 26
+          "found": 1
         },
         {
           "file": ".ssh/id_rsa.pub",
@@ -4027,7 +4016,7 @@
           "file": "cloud/.credentials",
           "expected": 4,
           "risk": 2,
-          "found": 3
+          "found": 2
         },
         {
           "file": "cloud/.s3cfg",
@@ -4057,13 +4046,13 @@
           "file": "db/mongoid.yml",
           "expected": 1,
           "risk": 1,
-          "found": 0
+          "found": 1
         },
         {
           "file": "etc/shadow",
           "expected": 1,
           "risk": 1,
-          "found": 2
+          "found": 0
         },
         {
           "file": "filezilla/recentservers.xml",
@@ -4087,7 +4076,7 @@
           "file": "misc-keys/cert-key.pem",
           "expected": 1,
           "risk": 1,
-          "found": 14
+          "found": 1
         },
         {
           "file": "misc-keys/putty-example.ppk",
@@ -4099,7 +4088,7 @@
           "file": "proftpdpasswd",
           "expected": 1,
           "risk": 1,
-          "found": 2
+          "found": 0
         },
         {
           "file": "web/ruby/config/master.key",
@@ -4111,25 +4100,25 @@
           "file": "web/ruby/secrets.yml",
           "expected": 3,
           "risk": 3,
-          "found": 0
+          "found": 3
         },
         {
           "file": "web/var/www/.env",
           "expected": 10,
           "risk": 6,
-          "found": 0
+          "found": 4
         },
         {
           "file": ".npmrc",
           "expected": 3,
           "risk": 2,
-          "found": 2
+          "found": 1
         },
         {
           "file": "web/var/www/public_html/wp-config.php",
           "expected": 12,
           "risk": 9,
-          "found": 0
+          "found": 9
         },
         {
           "file": "web/var/www/public_html/.htpasswd",
@@ -4141,13 +4130,13 @@
           "file": ".git-credentials",
           "expected": 1,
           "risk": 1,
-          "found": 0
+          "found": 1
         },
         {
           "file": "db/robomongo.json",
           "expected": 7,
           "risk": 3,
-          "found": 0
+          "found": 2
         },
         {
           "file": "web/js/salesforce.js",
@@ -4159,7 +4148,7 @@
           "file": ".netrc",
           "expected": 2,
           "risk": 2,
-          "found": 0
+          "found": 1
         },
         {
           "file": "hub",
@@ -4177,7 +4166,7 @@
           "file": "db/.pgpass",
           "expected": 1,
           "risk": 1,
-          "found": 0
+          "found": 1
         },
         {
           "file": "ventrilo_srv.ini",
@@ -4189,7 +4178,7 @@
           "file": "web/var/www/public_html/config.php",
           "expected": 4,
           "risk": 1,
-          "found": 0
+          "found": 1
         },
         {
           "file": "db/dbeaver-data-sources.xml",
@@ -4207,7 +4196,7 @@
           "file": "web/django/settings.py",
           "expected": 1,
           "risk": 1,
-          "found": 0
+          "found": 1
         },
         {
           "file": "deployment-config.json",
@@ -4219,7 +4208,7 @@
           "file": ".ftpconfig",
           "expected": 5,
           "risk": 3,
-          "found": 0
+          "found": 2
         },
         {
           "file": ".remote-sync.json",
@@ -4243,24 +4232,77 @@
           "file": ".idea/WebServers.xml",
           "expected": 2,
           "risk": 1,
-          "found": 0
+          "found": 1
         }
       ],
-      "wall_seconds": 736.383
+      "wall_seconds": 206.27
     },
     "flask": {
-      "total_findings": 0,
-      "files_flagged": 0,
-      "by_rule": {},
-      "findings": [],
-      "wall_seconds": 85.493
+      "total_findings": 1,
+      "files_flagged": 1,
+      "by_rule": {
+        "generic-secret-assignment": 1
+      },
+      "findings": [
+        {
+          "file": "docs/config.rst",
+          "line": 41,
+          "rule": "generic-secret-assignment"
+        }
+      ],
+      "wall_seconds": 74.764
     },
     "rails": {
-      "total_findings": 0,
-      "files_flagged": 0,
-      "by_rule": {},
-      "findings": [],
-      "wall_seconds": 2196.467
+      "total_findings": 8,
+      "files_flagged": 6,
+      "by_rule": {
+        "generic-high-entropy": 4,
+        "postgres-connection-uri": 3,
+        "generic-secret-assignment": 1
+      },
+      "findings": [
+        {
+          "file": "guides/source/command_line.md",
+          "line": 1408,
+          "rule": "generic-high-entropy"
+        },
+        {
+          "file": "guides/source/debugging_rails_applications.md",
+          "line": 183,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "guides/source/form_helpers.md",
+          "line": 37,
+          "rule": "generic-high-entropy"
+        },
+        {
+          "file": "guides/source/form_helpers.md",
+          "line": 276,
+          "rule": "generic-high-entropy"
+        },
+        {
+          "file": "guides/source/form_helpers.md",
+          "line": 432,
+          "rule": "generic-high-entropy"
+        },
+        {
+          "file": "railties/lib/rails/generators/rails/app/templates/config/databases/postgresql.yml.tt",
+          "line": 89,
+          "rule": "postgres-connection-uri"
+        },
+        {
+          "file": "railties/lib/rails/generators/rails/app/templates/github/ci.yml.tt",
+          "line": 148,
+          "rule": "postgres-connection-uri"
+        },
+        {
+          "file": "railties/lib/rails/generators/rails/plugin/templates/github/ci.yml.tt",
+          "line": 105,
+          "rule": "postgres-connection-uri"
+        }
+      ],
+      "wall_seconds": 743.542
     }
   }
 }

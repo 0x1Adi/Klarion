@@ -11,7 +11,9 @@ coverage.html
 # Benchmark corpora are fetched, not vendored. These are 121 MB of third party
 # repos that each carry their own .git, so committing them would bloat the repo
 # and create phantom submodules. Run benchmark/fetch-datasets.sh to get them.
-benchmark/datasets/
+benchmark/datasets/*
+# Tracked: keeps `go test ./...` from compiling Go files inside the corpora.
+!benchmark/datasets/go.mod
 
 # Raw scanner output is NOT published. It is verbatim tool output over
 # leaky-repo, so it reproduces that corpus's credentials line by line. Those

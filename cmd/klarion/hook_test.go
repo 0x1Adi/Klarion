@@ -171,6 +171,10 @@ func TestHookFailsOpenOnGarbageInput(t *testing.T) {
 	if env.HookSpecificOutput.PermissionDecision != "allow" {
 		t.Errorf("decision = %q, want allow (fail-open)", env.HookSpecificOutput.PermissionDecision)
 	}
+	// The user must be able to see that nothing was scanned.
+	if !strings.Contains(env.HookSpecificOutput.PermissionDecisionReason, "did not scan") {
+		t.Errorf("fail-open allow should say it did not scan, got %q", env.HookSpecificOutput.PermissionDecisionReason)
+	}
 }
 
 // fail_open = false is the opt-out: an operator who would rather block than
@@ -225,5 +229,89 @@ func TestHookAllowsEmptyPayload(t *testing.T) {
 
 	if got.PermissionDecision != "allow" {
 		t.Errorf("decision = %q, want allow", got.PermissionDecision)
+	}
+}
+
+// Claude Code sends absolute paths. A parent directory named like a test tree
+// ("examples", "test") must not turn every file in the project into a fixture.
+func TestHookJudgesPathInsideProject(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "examples", "shop")
+	payload := func(cwd string) map[string]any {
+		return map[string]any{
+			"hook_event_name": "PreToolUse",
+			"tool_name":       "Write",
+			"cwd":             cwd,
+			"tool_input": map[string]any{
+				"file_path": filepath.Join(root, "src", "settings.py"),
+				"content":   "api_token = \"" + "Zk9Qp2Vx7Lm4" + "Rn8Ty1WcQe3\"\n",
+			},
+		}
+	}
+	if got := runHookWith(t, payload(root), noAI); got.PermissionDecision != "deny" {
+		t.Errorf("decision = %q, want deny: src/settings.py is not a test file", got.PermissionDecision)
+	}
+	// Sanity: judged by the absolute path, the parent "examples" dir hides it.
+	if got := runHookWith(t, payload(""), noAI); got.PermissionDecision != "allow" {
+		t.Fatalf("precondition: absolute path decision = %q, want allow", got.PermissionDecision)
+	}
+}
+
+// With no AI provider the hook still blocks provider keys, and only those, so
+// an unconfigured install neither protects nothing nor blocks ordinary code.
+func TestHookOfflineBlocksProviderCredentialsOnly(t *testing.T) {
+	t.Setenv("KLARION_TEST_ABSENT_KEY", "")
+	cfg := "[ai]\nmode = \"on\"\nprovider = \"openai\"\napi_key_env = \"KLARION_TEST_ABSENT_KEY\"\n"
+	write := func(content string) map[string]any {
+		return map[string]any{
+			"tool_name":  "Write",
+			"tool_input": map[string]any{"file_path": "app/config.py", "content": content},
+		}
+	}
+	jwt := "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
+	cases := []struct {
+		name, content, want string
+	}{
+		{"AWS key", "aws_access_key_id = \"AKIA" + "Z7QW3MPLXV2KRT8N\"\n", "deny"},
+		{"JWT", "token = \"" + jwt + "\"\n", "allow"},
+		{"generic assignment", "api_token = \"" + "Zk9Qp2Vx7Lm4" + "Rn8Ty1WcQe3\"\n", "allow"},
+	}
+	for _, tc := range cases {
+		if got := runHookWith(t, write(tc.content), cfg); got.PermissionDecision != tc.want {
+			t.Errorf("%s: decision = %q, want %s (reason: %s)", tc.name, got.PermissionDecision, tc.want, got.PermissionDecisionReason)
+		}
+	}
+	// An unjudged candidate is allowed, and the user is told why.
+	if got := runHookWith(t, write(cases[2].content), cfg); !strings.Contains(got.PermissionDecisionReason, "no AI provider") {
+		t.Errorf("offline allow should say no AI provider is configured, got %q", got.PermissionDecisionReason)
+	}
+	// Sanity: with the heuristic chosen on purpose, the JWT does block.
+	if got := runHookWith(t, write("token = \""+jwt+"\"\n"), noAI); got.PermissionDecision != "deny" {
+		t.Fatalf("precondition: mode=off JWT decision = %q, want deny", got.PermissionDecision)
+	}
+}
+
+// With no key configured, the hook must never adjudicate through a `claude`
+// login it finds on PATH: that spends a subscription nobody chose and sends code
+// to that account. It goes offline instead.
+func TestHookNeverRunsClaudeImplicitly(t *testing.T) {
+	bin := t.TempDir()
+	marker := filepath.Join(t.TempDir(), "claude-ran")
+	stub := "#!/bin/sh\ntouch " + marker + "\nexit 1\n"
+	if err := os.WriteFile(filepath.Join(bin, "claude"), []byte(stub), 0o755); err != nil { // #nosec G306 -- test stub must be executable
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("KLARION_TEST_ABSENT_KEY", "")
+
+	got := runHookWith(t, map[string]any{
+		"tool_name":  "Write",
+		"tool_input": map[string]any{"file_path": "app/config.py", "content": "aws_access_key_id = \"AKIA" + "Z7QW3MPLXV2KRT8N\"\n"},
+	}, "[ai]\nmode = \"on\"\nprovider = \"anthropic\"\napi_key_env = \"KLARION_TEST_ABSENT_KEY\"\n")
+
+	if _, err := os.Stat(marker); err == nil {
+		t.Fatal("the hook ran the claude CLI without ai.provider = \"claude-cli\"")
+	}
+	if got.PermissionDecision != "deny" {
+		t.Errorf("decision = %q, want deny from the offline check", got.PermissionDecision)
 	}
 }
