@@ -2,6 +2,7 @@ CredData benchmark tools for benchmark/REPORT.md section 14 (2026-09-16).
 
 Rebuild the dataset (Linux; CredData commit c09c0c52):
   git clone https://github.com/Samsung/CredData && cd CredData
+  git checkout c09c0c52fc6dae4ae5438ae69ba486f9f8059f0d   # the labels section 14 was scored on
   cp <klarion>/benchmark/creddata/fetch_partial.py <klarion>/benchmark/creddata/retry_failed.py .
   python3 fetch_partial.py 12        # blobless fetch of labeled files only, ~13 min
   python3 retry_failed.py            # retries connection resets
