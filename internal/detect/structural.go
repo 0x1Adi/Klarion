@@ -24,7 +24,7 @@ const (
 	idPassword       = "generic-password-assignment" // klarion:allow (rule ID)
 	idSecret         = "generic-secret-assignment"   // klarion:allow (rule ID)
 	idURLCredentials = "url-credentials"             // klarion:allow (rule ID)
-	idCredentialFile = "credential-file-entry"
+	idCredentialFile = "credential-file-entry"       // #nosec G101 -- a rule ID, not a credential
 
 	minValueLen          = 4
 	maxValueLen          = 1024

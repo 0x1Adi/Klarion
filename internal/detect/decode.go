@@ -89,7 +89,8 @@ func decodeSpans(line string) []decodedSpan {
 	}
 	if strings.Contains(line, `\u`) {
 		t := uniEscapeRe.ReplaceAllStringFunc(line, func(esc string) string {
-			n, _ := strconv.ParseUint(esc[2:], 16, 32)
+			// Four hex digits (uniEscapeRe), so 16 bits always fits a rune.
+			n, _ := strconv.ParseUint(esc[2:], 16, 16)
 			return string(rune(n))
 		})
 		if t != line {
