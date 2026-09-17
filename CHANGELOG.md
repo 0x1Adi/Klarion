@@ -17,6 +17,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   is configured, so every install without an API key showed a failed server in
   `/mcp`. The hook already checks every write, and `/klarion:scan` scans on demand.
   Plugin 0.3.4.
+- **A missing `klarion` binary is reported plainly.** The plugin's hooks call
+  `klarion`, and without it every change went through with only
+  "/bin/sh: klarion: command not found", which even Claude misread as the hook not
+  being registered. Sessions now start with a notice that nothing is being scanned,
+  and each unscanned change says so and how to install. Plugin 0.3.5.
 - **Plugin README:** removed a Homebrew tap that does not exist, and added what
   leaves your machine and when a change goes through unscanned.
 - **`/klarion:scan`** reads the path from `$ARGUMENTS`. `${ARGUMENTS:-.}` is not a

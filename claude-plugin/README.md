@@ -49,8 +49,12 @@ nothing leaves your machine.
 ## When a change goes through unscanned
 
 The hook never blocks your work because of its own problems. If `klarion` is not
-installed, fails, or takes longer than 60 seconds, the change goes through. When
-the binary is missing, Claude Code shows a hook error on each change.
+installed, fails, or takes longer than 60 seconds, the change goes through.
+
+A missing binary is reported, not hidden: each session starts with a notice that
+changes are not being scanned, and each change shows "Klarion is not installed,
+so this change was NOT scanned". Nobody sees these in a run with no one watching,
+such as `claude -p` in CI, so check `which klarion` on those machines.
 
 ## Install the plugin
 
