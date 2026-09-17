@@ -4,7 +4,9 @@
 # scanning (govulncheck + gosec), (c) a cross-compile matrix to catch
 # platform-specific breakage, and (d) a self-scan that dogfoods the binary
 # against this repo (fixtures are allowlisted in .klarion.toml, so a clean
-# tree exits 0).
+# tree exits 0). The self-scan runs only when started by hand (Actions -> CI ->
+# Run workflow): it needs a model and GROQ_API_KEY, and on every push it ran
+# for 20 minutes and then hit the free tier's daily token limit.
 #
 # Actions are pinned to commit SHAs, not tags. A tag is mutable: whoever
 # controls the action's repository can repoint v4 at new code, which then runs
@@ -18,6 +20,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -137,6 +140,8 @@ jobs:
 
   self-scan:
     name: Self scan
+    # Manual only: each run spends model tokens we do not have on every push.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     needs: test
     steps:
