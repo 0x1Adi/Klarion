@@ -17,8 +17,9 @@ Install the `klarion` binary and put it on `PATH`:
 
 ```sh
 go install github.com/0x1Adi/Klarion/cmd/klarion@latest
-# or: brew install 0x1Adi/tap/klarion
 ```
+
+Or download a binary from the [releases page](https://github.com/0x1Adi/Klarion/releases).
 
 Configure a model. Either set an API key:
 
@@ -36,6 +37,19 @@ provider = "claude-cli"
 
 With no model configured, the hook still blocks provider-issued keys (cloud,
 VCS, SaaS tokens), lets everything else through, and says it could not judge it.
+
+## What leaves your machine
+
+With a model configured, each candidate is sent to that model's provider: the
+value, its file path and a few nearby lines. Set `send_secret = false` under
+`[ai]` to send the value redacted. With a local Ollama, or with no model,
+nothing leaves your machine.
+
+## When a change goes through unscanned
+
+The hook never blocks your work because of its own problems. If `klarion` is not
+installed, fails, or takes longer than 60 seconds, the change goes through. When
+the binary is missing, Claude Code shows a hook error on each change.
 
 ## Install the plugin
 

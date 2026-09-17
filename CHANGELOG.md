@@ -5,6 +5,19 @@ All notable changes to Klarion are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **The Claude Code plugin did not load.** Its `plugin.json` also declared
+  `hooks/hooks.json`, which Claude Code loads on its own, so Claude Code rejected
+  the whole plugin with "Duplicate hooks file detected": no hooks and no MCP
+  tools. `claude plugin validate` does not catch this. Plugin 0.3.2 drops the key.
+- **Plugin README:** removed a Homebrew tap that does not exist, and added what
+  leaves your machine and when a change goes through unscanned.
+- **`/klarion:scan`** reads the path from `$ARGUMENTS`. `${ARGUMENTS:-.}` is not a
+  placeholder Claude Code fills in.
+
 ## [0.3.2] - 2026-09-17
 
 ### Fixed

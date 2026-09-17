@@ -5,11 +5,9 @@ argument-hint: "[path]"
 
 Run Klarion against the repository and report any leaked secrets.
 
-Run this command:
+Run `klarion scan` on the path the user gave: $ARGUMENTS
 
-```
-klarion scan ${ARGUMENTS:-.}
-```
+If no path was given, run `klarion scan .` to scan the current directory.
 
 Then summarize the findings for the user: for each finding give the file,
 line, rule, severity, the AI verdict (real secret vs false positive) with its
