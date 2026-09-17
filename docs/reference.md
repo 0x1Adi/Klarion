@@ -131,7 +131,7 @@ secret-scan:
 
 **Claude Code plugin**
 
-Klarion ships a plugin in `claude-plugin/` that wires up both the hook and the MCP server.
+Klarion ships a plugin in `claude-plugin/` that adds the hook and a `/klarion:scan` command.
 The repository is its own plugin marketplace:
 
 ```
@@ -143,8 +143,9 @@ The hook runs `klarion hook --event pre-tool-use` for `Write`, `Edit` and `Multi
 `--bash` variant guards secret bearing shell commands. On a real secret the tool call is
 denied, or the user is asked, depending on `[hook] decision`. With no model configured,
 the hook blocks provider keys only and says it could not judge the rest. It uses your
-Claude Code login only if you set `provider = "claude-cli"`. The MCP server exposes
-`scan_text`, `scan_file` and `verify_finding`.
+Claude Code login only if you set `provider = "claude-cli"`. The plugin does not start
+the MCP server: `klarion mcp` needs a model and exits without one, which would show as a
+failed server for every install without a key. Add it yourself once a model is set.
 
 ## Adopting it on a repo that already has findings
 

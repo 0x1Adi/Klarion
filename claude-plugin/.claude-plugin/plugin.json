@@ -1,6 +1,6 @@
 {
   "name": "klarion",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Stops Claude Code from writing or committing leaked secrets. Local checks find candidates, and an AI model you choose confirms the real ones.",
   "author": {
     "name": "The Klarion Authors",

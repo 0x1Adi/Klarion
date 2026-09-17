@@ -13,9 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `hooks/hooks.json`, which Claude Code loads on its own, so Claude Code rejected
   the whole plugin with "Duplicate hooks file detected": no hooks and no MCP
   tools. `claude plugin validate` does not catch this. Plugin 0.3.2 drops the key.
-- **The plugin's MCP server was not registered.** Its config sat at a custom path
-  (`mcp/servers.json`), and `claude plugin details` listed no MCP server. It now
-  lives in the plugin's `.mcp.json`, where the docs place it. Plugin 0.3.3.
+- **The plugin no longer starts the MCP server.** `klarion mcp` exits when no model
+  is configured, so every install without an API key showed a failed server in
+  `/mcp`. The hook already checks every write, and `/klarion:scan` scans on demand.
+  Plugin 0.3.4.
 - **Plugin README:** removed a Homebrew tap that does not exist, and added what
   leaves your machine and when a change goes through unscanned.
 - **`/klarion:scan`** reads the path from `$ARGUMENTS`. `${ARGUMENTS:-.}` is not a

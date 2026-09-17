@@ -1,15 +1,16 @@
 # Klarion — Claude Code plugin
 
-Stops Claude Code from writing or committing leaked secrets. Bundles two
-surfaces:
+Stops Claude Code from writing or committing leaked secrets. It adds:
 
-- **PreToolUse hook** — every `Write`/`Edit`/`MultiEdit` and secret-bearing
-  `Bash` command (e.g. `git commit`) is scanned by `klarion hook` before it
-  runs. If a real secret is detected the tool call is **denied** (or the agent
-  is **asked**, per config), with the reason fed back to Claude so it can fix
-  the code instead of leaking.
-- **MCP server** — exposes `scan_text`, `scan_file`, and `verify_finding`
-  tools so the agent can proactively check content it is about to write.
+- **A PreToolUse hook.** Every `Write`, `Edit` and `MultiEdit`, and every
+  secret-bearing `Bash` command (for example `git commit`), is scanned by
+  `klarion hook` before it runs. If a real secret is found, the tool call is
+  **denied** (or you are **asked**, per config), and the reason goes back to
+  Claude so it can fix the code.
+- **`/klarion:scan`** to scan the project, or a path, on demand.
+
+Klarion also has an MCP server (`klarion mcp`). It needs a model configured and
+exits without one, so the plugin does not start it.
 
 ## Prerequisites
 
