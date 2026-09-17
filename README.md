@@ -89,6 +89,9 @@ costs nothing. GitLab CI and every option are in the [reference](./docs/referenc
 
 ## Results
 
+Klarion found **about 1.7× more real secrets than gitleaks**, and 89% of its alerts were real
+(gitleaks: 91%).
+
 We tested Klarion v0.3.0 on [CredData](https://github.com/Samsung/CredData): 337 real open
 source repos where Samsung labeled the lines that hold secrets. These numbers cover code
 outside test folders.
