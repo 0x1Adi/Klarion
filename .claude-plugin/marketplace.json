@@ -4,6 +4,7 @@
     "name": "The Klarion Authors",
     "url": "https://github.com/0x1Adi/Klarion"
   },
+  "description": "Klarion: stops Claude Code from writing or committing leaked secrets.",
   "plugins": [
     {
       "name": "klarion",
