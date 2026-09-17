@@ -1,23 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 250" width="1000" height="250" role="img" aria-label="Klarion. Entropy finds the candidates, a model decides which are real. 79 percent of pre-filter false positives removed across four unseen ecosystems, 1.00 file precision on the leaky-repo ground truth, 59,754 files measured.">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 250" width="1000" height="250" role="img" aria-label="Klarion finds leaked secrets in code. An AI model checks each one, so you see the real ones. Tested on CredData, 337 real repositories, code outside test folders: Klarion finds 35 percent of real secrets, gitleaks 21 percent. 89 percent of Klarion alerts are real, gitleaks 91 percent, detect-secrets 34 percent. 9 false alarms on flask and rails, gitleaks 33, detect-secrets 247. Needs an AI model.">
   <rect width="1000" height="250" rx="16" fill="#14110f"/>
 
   <rect x="58" y="44" width="32" height="32" rx="10" fill="#ff4d8b"/>
   <text x="106" y="78" font-family="Helvetica, Arial, sans-serif" font-size="48" font-weight="600" fill="#faf7f2">Klarion</text>
 
-  <text x="58" y="128" font-family="Helvetica, Arial, sans-serif" font-size="19" fill="#c7bfb5">Entropy finds the candidates. A model decides which are real.</text>
-  <text x="58" y="156" font-family="Helvetica, Arial, sans-serif" font-size="15" fill="#968d83">The pre-filter is not a detector. Klarion requires an API key.</text>
+  <text x="58" y="128" font-family="Helvetica, Arial, sans-serif" font-size="19" fill="#c7bfb5">Finds leaked secrets in code. An AI model checks each one, so you see the real ones.</text>
+  <text x="58" y="156" font-family="Helvetica, Arial, sans-serif" font-size="15" fill="#968d83">Needs an AI model. Tested on CredData: 337 real repos, code outside test folders.</text>
 
   <line x1="58" y1="184" x2="942" y2="184" stroke="#332d28" stroke-width="1"/>
 
-  <text x="58" y="226" font-family="Helvetica, Arial, sans-serif" font-size="32" font-weight="600" fill="#a4d4c5">79%</text>
-  <text x="136" y="217" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">of pre-filter noise removed,</text>
-  <text x="136" y="233" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">on four unseen ecosystems</text>
+  <text x="58" y="226" font-family="Helvetica, Arial, sans-serif" font-size="32" font-weight="600" fill="#a4d4c5">35%</text>
+  <text x="136" y="217" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">of real secrets found</text>
+  <text x="136" y="233" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">gitleaks finds 21%</text>
 
-  <text x="400" y="226" font-family="Helvetica, Arial, sans-serif" font-size="32" font-weight="600" fill="#a4d4c5">1.00</text>
-  <text x="478" y="217" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">file precision on the</text>
-  <text x="478" y="233" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">leaky-repo ground truth</text>
+  <text x="390" y="226" font-family="Helvetica, Arial, sans-serif" font-size="32" font-weight="600" fill="#a4d4c5">89%</text>
+  <text x="468" y="217" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">of alerts are real secrets</text>
+  <text x="468" y="233" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">gitleaks 91%, detect-secrets 34%</text>
 
-  <text x="690" y="226" font-family="Helvetica, Arial, sans-serif" font-size="32" font-weight="600" fill="#a4d4c5">59,754</text>
-  <text x="822" y="217" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">files measured, in Java,</text>
-  <text x="822" y="233" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">Go, TypeScript and PHP</text>
+  <text x="712" y="226" font-family="Helvetica, Arial, sans-serif" font-size="32" font-weight="600" fill="#a4d4c5">9</text>
+  <text x="744" y="217" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">false alarms on flask and rails</text>
+  <text x="744" y="233" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">gitleaks 33, detect-secrets 247</text>
 </svg>
