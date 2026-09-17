@@ -2,11 +2,13 @@
 
 Stops Claude Code from writing or committing leaked secrets. It adds:
 
-- **A PreToolUse hook.** Every `Write`, `Edit` and `MultiEdit`, and every
-  secret-bearing `Bash` command (for example `git commit`), is scanned by
-  `klarion hook` before it runs. If a real secret is found, the tool call is
-  **denied** (or you are **asked**, per config), and the reason goes back to
-  Claude so it can fix the code.
+- **A PreToolUse hook.** Every `Write`, `Edit` and `MultiEdit`, and every `Bash`
+  command, is scanned by `klarion hook` before it runs. For `git add` and
+  `git commit` it also scans what the command could commit: changed lines of
+  tracked files, and untracked files that `.gitignore` does not exclude. If a
+  real secret is found, the tool call is **denied** (or you are **asked**, per
+  config), and the reason goes back to Claude so it can fix the code. The hook
+  never approves a call, so your permission prompts still apply.
 - **`/klarion:scan`** to scan the project, or a path, on demand.
 
 Klarion also has an MCP server (`klarion mcp`). It needs a model configured and
@@ -49,12 +51,29 @@ nothing leaves your machine.
 ## When a change goes through unscanned
 
 The hook never blocks your work because of its own problems. If `klarion` is not
-installed, fails, or takes longer than 60 seconds, the change goes through.
+installed, fails, or takes longer than 60 seconds, the change goes through. A
+commit of many files with many candidates can take longer than that.
+
+The commit scan covers the repository the session runs in. It does not follow
+`cd` or `git -C` into another repository, and does not recognise git aliases.
 
 A missing binary is reported, not hidden: each session starts with a notice that
 changes are not being scanned, and each change shows "Klarion is not installed,
 so this change was NOT scanned". Nobody sees these in a run with no one watching,
 such as `claude -p` in CI, so check `which klarion` on those machines.
+
+## False positives
+
+The block message shows each finding's fingerprint and the exact line to add to
+`.klarion.toml`:
+
+```toml
+[allowlist]
+fingerprints = ["37f6cd332ef64f4cb8df8d74d6fbf521"]
+```
+
+It tells Claude to ask you first. A prompt-injected agent can still edit
+`.klarion.toml` itself, so review changes to that file.
 
 ## Install the plugin
 

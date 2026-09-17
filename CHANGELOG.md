@@ -5,9 +5,35 @@ All notable changes to Klarion are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.3.3] - 2026-09-17
+
+### Security
+
+- **The hook no longer approves tool calls.** For every clean `Write`, `Edit` and
+  `Bash` call it answered `"allow"`, which in Claude Code skips the permission
+  prompt. Installing Klarion switched off the user's approval of shell commands
+  and edits wherever no explicit ask or deny rule applied. The hook now prints
+  nothing for a clean call, so the normal permission flow runs, and sends notes
+  (a fail-open skip, an offline "could not judge") as `systemMessage`.
+
+### Added
+
+- **The hook scans what a git command could commit.** For `git add`, `git stage`
+  and `git commit`, it reads the changed lines of tracked files, staged or not, and
+  untracked files that `.gitignore` does not exclude. The hook runs before the
+  command, so for `git add -A && git commit` the index alone would miss a `.env`
+  the agent never wrote. Secrets already in history and ignored files do not block.
+- **Block messages show each finding's fingerprint** and the exact line to add
+  under `[allowlist]`, and tell the agent to ask the user first. Before, the message
+  said to add "its fingerprint" without showing it, and the agent could not work it
+  out: that means writing the value somewhere, which the hook blocks.
 
 ### Fixed
+
+- **`.klarion.toml` is not scanned.** An allowlisted fingerprint is 32 hex
+  characters and read as a new high-entropy secret, so the offline check blocked
+  saving the allowlist line and committing it. `.klarion.toml` and `klarion.toml`
+  join the default ignore paths, and the hook skips edits to Klarion's own files.
 
 - **The Claude Code plugin did not load.** Its `plugin.json` also declared
   `hooks/hooks.json`, which Claude Code loads on its own, so Claude Code rejected

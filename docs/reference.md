@@ -77,7 +77,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0       # needed so a PR's base commit is available
-      - uses: 0x1Adi/Klarion@v0.3.2
+      - uses: 0x1Adi/Klarion@v0.3.3
         with:
           fail-on-severity: medium
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -94,7 +94,7 @@ That is the whole configuration. By default the action:
   `ai-mode: auto` continues with a warning and raw entropy output, which is
   too noisy to rely on.
 - **installs the scanner matching the release you pinned**, by tag or commit
-  SHA: `@v0.3.2` runs the v0.3.2 binary, and `@v0` runs the release `v0`
+  SHA: `@v0.3.3` runs the v0.3.3 binary, and `@v0` runs the release `v0`
   points to.
 - **lists findings in the job log and as annotations**: file, line, rule and
   verdict, never the value. If GitHub rejects the Security tab upload (a
@@ -105,7 +105,7 @@ That is the whole configuration. By default the action:
 Useful overrides:
 
 ```yaml
-      - uses: 0x1Adi/Klarion@v0.3.2
+      - uses: 0x1Adi/Klarion@v0.3.3
         with:
           scan-mode: full          # auto | diff | full | history
           base: ${{ github.event.pull_request.base.sha }}
@@ -140,8 +140,12 @@ The repository is its own plugin marketplace:
 ```
 
 The hook runs `klarion hook --event pre-tool-use` for `Write`, `Edit` and `MultiEdit`, and a
-`--bash` variant guards secret bearing shell commands. On a real secret the tool call is
-denied, or the user is asked, depending on `[hook] decision`. With no model configured,
+`--bash` variant for shell commands. For `git add`, `git stage` and `git commit` it also scans
+what the command could commit: changed lines of tracked files and untracked files that
+`.gitignore` does not exclude. On a real secret the tool call is denied, or the user is
+asked, depending on `[hook] decision`; the message shows each finding's fingerprint and the
+line to add under `[allowlist]` if the user confirms a false positive. The hook never
+approves a call, so Claude Code's own permission prompts still apply. With no model configured,
 the hook blocks provider keys only and says it could not judge the rest. It uses your
 Claude Code login only if you set `provider = "claude-cli"`. The plugin does not start
 the MCP server: `klarion mcp` needs a model and exits without one, which would show as a

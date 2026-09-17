@@ -185,11 +185,12 @@ func Default() *Config {
 			MaxFileSizeBytes: 1 << 20,
 			MaxDecodeDepth:   2,
 			IgnorePaths: []string{
-				// Klarion's own state. Both files are full of hex digests
-				// (verdict-cache keys, baseline fingerprints) which read as
-				// high-entropy tokens — scanning them makes every run report
-				// the previous run's bookkeeping as new secrets.
-				".klarion/**", ".klarion-baseline.json",
+				// Klarion's own config and state. They are full of hex digests
+				// (verdict-cache keys, baseline and allowlist fingerprints)
+				// which read as high-entropy tokens — scanning them makes every
+				// run report the previous run's bookkeeping as new secrets, and
+				// a fingerprint someone allowlisted as a new finding.
+				".klarion/**", ".klarion-baseline.json", ".klarion.toml", "klarion.toml",
 				".git/**", "node_modules/**", "vendor/**", "dist/**", "build/**",
 				// Bundled third-party source. next.js ships Babel under
 				// packages/next/src/compiled/, which produced 150 of its 174

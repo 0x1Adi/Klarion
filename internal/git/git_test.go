@@ -573,3 +573,70 @@ func TestScanHistoryAllRefsAndMerges(t *testing.T) {
 		}
 	})
 }
+
+// UncommittedChanges must cover everything a `git add -A && git commit` could
+// put into the next commit, and nothing already committed or ignored.
+func TestUncommittedChanges(t *testing.T) {
+	dir := newTestRepo(t)
+	write := func(rel, content string) {
+		t.Helper()
+		p := filepath.Join(dir, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	withGitEnv(t, func() {
+		ctx := context.Background()
+
+		// Before the first commit: a staged file must still show up.
+		write("first.txt", "alpha\n")
+		gitInDir(t, dir, "add", "first.txt")
+		diffs, untracked, err := UncommittedChanges(ctx, dir)
+		if err != nil {
+			t.Fatalf("unborn branch: %v", err)
+		}
+		if len(diffs) != 1 || diffs[0].Path != "first.txt" || len(untracked) != 0 {
+			t.Fatalf("unborn branch: diffs=%+v untracked=%v", diffs, untracked)
+		}
+		gitInDir(t, dir, "commit", "-q", "-m", "first")
+
+		write(".gitignore", "ignored.txt\n")
+		write("tracked.txt", "old line\n")
+		gitInDir(t, dir, "add", ".gitignore", "tracked.txt")
+		gitInDir(t, dir, "commit", "-q", "-m", "second")
+
+		write("tracked.txt", "old line\nunstaged line\n") // tracked, not staged
+		write("staged.txt", "staged line\n")
+		gitInDir(t, dir, "add", "staged.txt")
+		write("sub/new.txt", "untracked\n")
+		write("ignored.txt", "ignored\n")
+
+		diffs, untracked, err = UncommittedChanges(ctx, dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		added := map[string][]string{}
+		for _, d := range diffs {
+			for _, l := range d.Added {
+				added[d.Path] = append(added[d.Path], l.Text)
+			}
+		}
+		if got := added["tracked.txt"]; len(got) != 1 || got[0] != "unstaged line" {
+			t.Errorf("tracked.txt added lines = %q, want only the new line", got)
+		}
+		if got := added["staged.txt"]; len(got) != 1 || got[0] != "staged line" {
+			t.Errorf("staged.txt added lines = %q", got)
+		}
+		if _, ok := added["first.txt"]; ok {
+			t.Error("already committed file reported as a change")
+		}
+		sort.Strings(untracked)
+		if strings.Join(untracked, ",") != "sub/new.txt" {
+			t.Errorf("untracked = %v, want [sub/new.txt] (ignored.txt excluded)", untracked)
+		}
+	})
+}

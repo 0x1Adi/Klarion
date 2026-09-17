@@ -120,6 +120,42 @@ func StagedFiles(ctx context.Context, dir string) ([]StagedFile, error) {
 	return files, nil
 }
 
+// UncommittedChanges returns what the next commit in the repository at root
+// could contain: the added lines of every change to a tracked file, staged or
+// not, and the root-relative paths of untracked files that .gitignore does not
+// exclude.
+//
+// It serves the agent hook. A PreToolUse hook runs before the command, so for
+// `git add -A && git commit` the index does not yet hold what the command will
+// commit; this is the superset. Two diffs are taken instead of `git diff HEAD`
+// so a branch with no commits works too: --cached compares the index with HEAD
+// (or with nothing before the first commit), and the plain diff compares the
+// working tree with the index.
+//
+// Call it with the repository root: paths are then root-relative whatever
+// diff.relative says. Quoting, color, prefixes and external diff drivers are
+// pinned because user config can change each of them.
+func UncommittedChanges(ctx context.Context, root string) ([]FileDiff, []string, error) {
+	var diffs []FileDiff
+	for _, extra := range []string{"--cached", ""} {
+		args := []string{"-c", "core.quotepath=false", "diff", "-U0", "--no-color",
+			"--no-ext-diff", "--no-textconv", "--src-prefix=a/", "--dst-prefix=b/"}
+		if extra != "" {
+			args = append(args, extra)
+		}
+		out, err := run(ctx, root, args...)
+		if err != nil {
+			return nil, nil, err
+		}
+		diffs = append(diffs, ParseUnifiedDiff(string(out))...)
+	}
+	out, err := run(ctx, root, "ls-files", "--others", "--exclude-standard", "-z")
+	if err != nil {
+		return nil, nil, err
+	}
+	return diffs, splitNUL(out), nil
+}
+
 // TrackedFiles lists every file git tracks in dir, as repo-relative paths.
 func TrackedFiles(ctx context.Context, dir string) ([]string, error) {
 	out, err := run(ctx, dir, "ls-files", "-z")

@@ -190,6 +190,8 @@ func TestDefaultIgnoresKlarionState(t *testing.T) {
 		".klarion/verdicts.json",
 		".klarion/cache/anything.json",
 		".klarion-baseline.json",
+		".klarion.toml",
+		"services/api/klarion.toml",
 	} {
 		if !c.PathIgnored(p) {
 			t.Errorf("PathIgnored(%q) = false, want true", p)
