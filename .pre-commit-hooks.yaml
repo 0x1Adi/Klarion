@@ -1,16 +1,32 @@
-# Hooks for the pre-commit framework (https://pre-commit.com). Both run
-# `klarion git`, the same scan `klarion protect` installs: it reads the staged
-# content from the index and fails the commit on a real secret.
+# Hooks for the pre-commit framework (https://pre-commit.com).
+#
+# Why they exist: `klarion protect` already blocks commits, the ones people make
+# by hand included, but it installs its own .git/hooks/pre-commit. In a repo that
+# already uses the pre-commit framework it refuses to overwrite that hook, and
+# --force would delete it. These hooks are how such a repo runs Klarion.
+#
+# Off by default. `stages: [manual]` means adding this repo to a config does not
+# start blocking anyone's commits: the scan needs an AI provider, and without one
+# it exits 2 and stops every commit. Run it on demand with
+#
+#     pre-commit run --hook-stage manual klarion
+#
+# and turn it on for commits, one repo at a time, by adding `stages: [pre-commit]`
+# to the hook in your .pre-commit-config.yaml.
+#
+# Both hooks run `klarion git`, the same staged content scan as `klarion protect`.
 # pass_filenames stays false: `klarion git` takes a directory, not file names.
 - id: klarion
   name: Klarion secret scan
-  description: Blocks commits that add a secret. Builds Klarion with Go on first use.
+  description: Fails on a secret in staged content. Builds Klarion with Go on first use.
   entry: klarion git
   language: golang
+  stages: [manual]
   pass_filenames: false
 - id: klarion-system
   name: Klarion secret scan
-  description: Blocks commits that add a secret. Uses the klarion binary on your PATH.
+  description: Fails on a secret in staged content. Uses the klarion binary on your PATH.
   entry: klarion git
   language: system
+  stages: [manual]
   pass_filenames: false

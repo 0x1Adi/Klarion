@@ -15,7 +15,7 @@
 #         security-events: write
 #       steps:
 #         - uses: actions/checkout@v6
-#         - uses: 0x1Adi/Klarion@v0.3.4
+#         - uses: 0x1Adi/Klarion@v0.3.5
 #           with:
 #             path: .
 #             fail-on-severity: medium
@@ -169,13 +169,13 @@ inputs:
     default: ""
   version:
     description: >-
-      Klarion release tag to install (e.g. v0.3.4), or "latest" for the newest
+      Klarion release tag to install (e.g. v0.3.5), or "latest" for the newest
       release. Defaults to the release this action file belongs to, so pinning
       the action by tag or commit SHA also pins the scanner.
     required: false
     # Written when a release is cut. scripts/check-release-version.sh fails the
     # release if this does not match the tag being published.
-    default: "v0.3.4"
+    default: "v0.3.5"
 
 runs:
   using: "composite"

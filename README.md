@@ -80,7 +80,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: 0x1Adi/Klarion@v0.3.4
+      - uses: 0x1Adi/Klarion@v0.3.5
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
@@ -94,13 +94,16 @@ the [reference](./docs/reference.md).
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/0x1Adi/Klarion
-    rev: v0.3.4
+    rev: v0.3.5
     hooks:
       - id: klarion
+        stages: [pre-commit]
 ```
 
-The `klarion` hook builds Klarion with Go the first time it runs. If klarion is already
-installed, use `id: klarion-system`. Everyone who commits needs a model set up.
+Without the `stages` line the hook is off and runs only when you ask for it, with
+`pre-commit run --hook-stage manual klarion`. The `klarion` hook builds Klarion with Go the
+first time it runs; use `id: klarion-system` if klarion is already installed. Everyone who
+commits needs a model set up.
 
 ## Results
 

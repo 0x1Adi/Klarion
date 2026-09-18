@@ -5,6 +5,17 @@ All notable changes to Klarion are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.5] - 2026-09-18
+
+### Changed
+
+- **The pre-commit hooks ship off.** The manifest now sets `stages: [manual]`, so adding the
+  Klarion repo to a `.pre-commit-config.yaml` blocks nobody's commits and builds nothing:
+  switching it on, one repo at a time, means adding `stages: [pre-commit]` to the hook. The
+  scan needs an AI provider and exits 2 without one, so a shared config that turned itself on
+  would stop every commit by a teammate who has no key. Run it on demand with
+  `pre-commit run --hook-stage manual klarion`.
+
 ## [0.3.4] - 2026-09-17
 
 ### Added
