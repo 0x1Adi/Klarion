@@ -5,6 +5,34 @@ All notable changes to Klarion are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.6] - 2026-09-18
+
+### Fixed
+
+- **The MCP server reported candidates its own verifier had rejected.** `scan_text`
+  and `scan_file` skipped the collapse and false-positive steps that `klarion scan`
+  applies, so an agent got back placeholders and generic candidates the verifier had
+  already dismissed, and one wrapped private key arrived as one finding per base64
+  line (31 for a 2048-bit key), which with a provider configured is one model call
+  per line. Both surfaces now report the same findings for the same content.
+- **An oversized message no longer ends the MCP session.** A frame above the 16 MB
+  limit killed the reader, so the server exited and the client saw a broken pipe in
+  the middle of a task. The frame is now skipped with a -32600 error and the session
+  carries on.
+- **`initialize` no longer echoes a protocol version the server does not speak.** It
+  answers with the client's revision when that is one of 2025-06-18, 2025-03-26 or
+  2024-11-05, and with the newest it supports otherwise, as the spec requires.
+
+### Added
+
+- **End-to-end tests for the MCP server** (`cmd/klarion/mcp_e2e_test.go`): the real
+  binary as a child process, real stdio pipes, real JSON-RPC frames. They cover the
+  handshake and version negotiation, the tool catalog, detection and redaction,
+  malformed and oversized input, stdout carrying protocol frames only, shutdown on
+  EOF, startup with no provider, and the rule that no model runs unless the operator
+  configured one. Hermetic by default; the model path runs only with
+  `KLARION_E2E_AI=1`.
+
 ## [0.3.5] - 2026-09-18
 
 ### Changed

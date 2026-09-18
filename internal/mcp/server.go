@@ -8,6 +8,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -21,10 +22,14 @@ import (
 )
 
 const (
-	protocolVersion = "2025-06-18"
+	protocolVersion = "2025-06-18" // newest revision this server implements
 	serverName      = "klarion"
 	maxLineBytes    = 16 << 20
 )
+
+// supportedVersions are the revisions this server speaks, newest first. A
+// tools-only stdio server is wire-compatible across these three.
+var supportedVersions = []string{protocolVersion, "2025-03-26", "2024-11-05"}
 
 // Server holds the pipeline shared by every tool call.
 type Server struct {
@@ -67,14 +72,26 @@ type rpcError struct {
 // Serve runs the read→dispatch→write loop until in is exhausted or ctx is done.
 func (s *Server) Serve(ctx context.Context, in io.Reader, out io.Writer) error {
 	s.out = bufio.NewWriter(out)
-	sc := bufio.NewScanner(in)
-	sc.Buffer(make([]byte, 0, 64<<10), maxLineBytes)
+	r := bufio.NewReaderSize(in, 64<<10)
 
-	for sc.Scan() {
+	for {
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		line := sc.Bytes()
+		line, oversized, err := readFrame(r)
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("mcp: read: %w", err)
+		}
+		if oversized {
+			// One outsized message must not end the session. An agent that
+			// pasted a huge file still needs the rest of its tool calls, and a
+			// server that exits here looks to the client like a crash.
+			s.respondError(nil, -32600, fmt.Sprintf("message exceeds the %d byte limit", maxLineBytes))
+			continue
+		}
 		if len(line) == 0 {
 			continue
 		}
@@ -85,10 +102,30 @@ func (s *Server) Serve(ctx context.Context, in io.Reader, out io.Writer) error {
 		}
 		s.dispatch(ctx, &req)
 	}
-	if err := sc.Err(); err != nil {
-		return fmt.Errorf("mcp: read: %w", err)
+}
+
+// readFrame reads one newline-delimited frame. A frame longer than
+// maxLineBytes is discarded up to the next newline and reported as oversized,
+// so the reader never holds more than the limit and the loop can continue.
+func readFrame(r *bufio.Reader) ([]byte, bool, error) {
+	var buf []byte
+	oversized := false
+	for {
+		chunk, isPrefix, err := r.ReadLine()
+		if err != nil {
+			return nil, false, err
+		}
+		if !oversized {
+			if len(buf)+len(chunk) > maxLineBytes {
+				oversized, buf = true, nil
+			} else {
+				buf = append(buf, chunk...)
+			}
+		}
+		if !isPrefix {
+			return buf, oversized, nil
+		}
 	}
-	return nil
 }
 
 func (s *Server) dispatch(ctx context.Context, req *rpcRequest) {
@@ -112,12 +149,20 @@ func (s *Server) dispatch(ctx context.Context, req *rpcRequest) {
 }
 
 func (s *Server) initializeResult(params json.RawMessage) map[string]any {
+	// Spec: answer with the client's version when we support it, otherwise with
+	// one we do, so the client can decide whether to keep talking. Echoing an
+	// unknown version claims support we have not got.
 	version := protocolVersion
 	var p struct {
 		ProtocolVersion string `json:"protocolVersion"`
 	}
-	if err := json.Unmarshal(params, &p); err == nil && p.ProtocolVersion != "" {
-		version = p.ProtocolVersion
+	if err := json.Unmarshal(params, &p); err == nil {
+		for _, v := range supportedVersions {
+			if p.ProtocolVersion == v {
+				version = v
+				break
+			}
+		}
 	}
 	return map[string]any{
 		"protocolVersion": version,
@@ -166,16 +211,22 @@ func (s *Server) scanToVerdicts(ctx context.Context, path string, content []byte
 	if len(candidates) == 0 {
 		return nil
 	}
+	// The agent-facing surface must report what `klarion scan` reports. One
+	// wrapped key is one finding, not one per base64 line (which also costs one
+	// model call per line), and a candidate the verifier rejected is not a
+	// finding: an agent that gets rejected candidates back learns to ignore us.
+	candidates = finding.CollapseKeyBlocks(candidates)
 	if err := verify.Apply(ctx, s.verifier, &s.cfg.AI, candidates); err != nil {
 		fmt.Fprintf(os.Stderr, "klarion mcp: verify: %v\n", err)
 	}
+	kept, _ := verify.FilterFalsePositives(candidates, &s.cfg.AI)
 	// Always redact before returning over the wire.
-	for i := range candidates {
-		candidates[i].Context = finding.RedactInText(candidates[i].Context, candidates[i].Secret)
-		candidates[i].Secret = ""
-		candidates[i].LineText = ""
+	for i := range kept {
+		kept[i].Context = finding.RedactInText(kept[i].Context, kept[i].Secret)
+		kept[i].Secret = ""
+		kept[i].LineText = ""
 	}
-	return candidates
+	return kept
 }
 
 func absClean(path string) string {
