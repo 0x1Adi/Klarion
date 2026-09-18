@@ -40,12 +40,32 @@ var buildKlarion = sync.OnceValues(func() (string, error) {
 	return bin, nil
 })
 
+// safeBuffer is the process's stderr. os/exec copies into it from a goroutine
+// of its own while the test reads it, so both sides take the lock: `go test
+// -race` reports the unguarded bytes.Buffer, which is how CI caught this.
+type safeBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *safeBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *safeBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
+}
+
 type session struct {
 	t       *testing.T
 	cmd     *exec.Cmd
 	stdin   io.WriteCloser
 	lines   chan string
-	stderr  *bytes.Buffer
+	stderr  *safeBuffer
 	stdout  []string // every line the server wrote, for the protocol-purity test
 	nextID  int
 	exited  chan struct{}
@@ -79,7 +99,7 @@ func start(t *testing.T, configTOML string, extraEnv ...string) *session {
 		t.Fatal(err)
 	}
 	s := &session{t: t, cmd: cmd, stdin: stdin, lines: make(chan string, 64),
-		stderr: &bytes.Buffer{}, nextID: 1, exited: make(chan struct{})}
+		stderr: &safeBuffer{}, nextID: 1, exited: make(chan struct{})}
 	cmd.Stderr = s.stderr
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
@@ -848,7 +868,7 @@ func TestMCPRealProviderVerdict(t *testing.T) {
 	// repository the way it would for the operator. A temp directory here would
 	// throw that away and fall back to the default provider.
 	cmd.Env = os.Environ() // the operator's real provider configuration
-	s := &session{t: t, cmd: cmd, stderr: &bytes.Buffer{}, nextID: 1,
+	s := &session{t: t, cmd: cmd, stderr: &safeBuffer{}, nextID: 1,
 		lines: make(chan string, 64), exited: make(chan struct{})}
 	stdin, _ := cmd.StdinPipe()
 	stdout, _ := cmd.StdoutPipe()
