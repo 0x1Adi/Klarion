@@ -24,12 +24,11 @@ const anthropicVersion = "2023-06-01"
 // binary-ish "is this a real leaked secret" judgement.
 const defaultAnthropicModel = "claude-haiku-4-5"
 
-// systemPrompt is shared by every LLM provider so their behavior is identical.
-// It is deliberately security-biased: for a secret scanner, a missed real
-// secret is far worse than an extra false alarm, so the model must err toward
-// "secret" whenever it is unsure. Only clearly documented examples / obvious
-// fakes are false positives.
-const systemPrompt = `You are a secret-verification classifier inside a static code scanner.
+// decisionRules is the judging half of the prompt: how to classify a
+// candidate, with nothing about how to format the answer. Rules() exports it
+// so a calling agent can adjudicate by the same procedure when Klarion has no
+// provider of its own to ask.
+const decisionRules = `You are a secret-verification classifier inside a static code scanner.
 
 You have NO access to the repository, no tools, and no ability to read files or run
 commands. Do not attempt to. Every candidate arrives with all the metadata needed to
@@ -89,7 +88,14 @@ DECISION PROCEDURE. Apply in order; stop at the first rule that matches.
 
 BIAS. This is a security tool: a missed leak costs far more than a false alarm.
 Where the rules leave you genuinely split, prefer "secret" over "uncertain", and
-"uncertain" over "false_positive". Judge each candidate independently.
+"uncertain" over "false_positive". Judge each candidate independently.`
+
+// systemPrompt is shared by every LLM provider so their behavior is identical.
+// It is deliberately security-biased: for a secret scanner, a missed real
+// secret is far worse than an extra false alarm, so the model must err toward
+// "secret" whenever it is unsure. Only clearly documented examples / obvious
+// fakes are false positives.
+const systemPrompt = decisionRules + `
 
 OUTPUT. Return exactly one JSON object and nothing else -- no markdown fence, no
 preamble, no commentary, no trailing text.

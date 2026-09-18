@@ -219,6 +219,40 @@ func (s *session) callTool(name string, args map[string]any) (scanResult, bool, 
 	return out, isErr, raw
 }
 
+// agentPayload is what a tool returns when no provider is configured and the
+// calling agent has to judge.
+type agentPayload struct {
+	Clean             bool   `json:"clean"`
+	Count             int    `json:"count"`
+	AdjudicatedBy     string `json:"adjudicated_by"`
+	NeedsAdjudication bool   `json:"needs_adjudication"`
+	Summary           string `json:"summary"`
+	Rules             string `json:"rules"`
+	Candidates        []struct {
+		RuleID  string `json:"rule_id"`
+		File    string `json:"file"`
+		Secret  string `json:"secret"`
+		Context string `json:"context"`
+		Verdict any    `json:"verdict"`
+	} `json:"candidates"`
+}
+
+// callToolInto decodes a tool result into out, whatever its payload shape.
+func (s *session) callToolInto(name string, args map[string]any, out any) string {
+	s.t.Helper()
+	resp := s.call("tools/call", map[string]any{"name": name, "arguments": args})
+	raw := mustJSON(s.t, resp)
+	res := result(s.t, resp)
+	if isErr, _ := res["isError"].(bool); isErr {
+		s.t.Fatalf("%s returned isError: %s", name, truncate(raw, 300))
+	}
+	text := res["content"].([]any)[0].(map[string]any)["text"].(string)
+	if err := json.Unmarshal([]byte(text), out); err != nil {
+		s.t.Fatalf("%s: %v (%q)", name, err, truncate(text, 200))
+	}
+	return raw
+}
+
 func (s *session) waitExit(timeout time.Duration) (int, bool) {
 	s.t.Helper()
 	select {
@@ -383,23 +417,81 @@ func TestMCPCleanShutdownOnEOF(t *testing.T) {
 	}
 }
 
-// Installed from a registry with no Klarion config, the server has no provider.
-// Whatever it does then must be loud and fast, and must not look like a server
-// that came up healthy.
-func TestMCPNoProviderStartup(t *testing.T) {
+// Installed from a registry with no Klarion config, the server has no provider
+// of its own — but an MCP session always has an agent on the other end. It must
+// serve, hand that agent the candidates and the rules, and be explicit that the
+// judgment is the agent's.
+func TestMCPNoProviderDelegatesToAgent(t *testing.T) {
 	s := start(t, "[ai]\nmode = \"on\"\n")
-	code, exited := s.waitExit(10 * time.Second)
-	if !exited {
-		t.Fatal("server neither served nor exited with no provider configured")
+	res := s.handshake()
+
+	if instr, _ := res["instructions"].(string); !strings.Contains(instr, "judge") {
+		t.Errorf("initialize instructions do not tell the model it must judge: %q", instr)
 	}
-	if code == 0 {
-		t.Errorf("exit code 0 with no provider; want a non-zero code so the client reports a failed start")
+
+	var got agentPayload
+	raw := s.callToolInto("scan_text", map[string]any{
+		"content":  fmt.Sprintf("import stripe\nstripe.api_key = %q\n", stripeKey),
+		"filename": "billing/client.py",
+	}, &got)
+
+	if !got.NeedsAdjudication || got.AdjudicatedBy != "calling-agent" {
+		t.Fatalf("payload does not hand the judgment over: %s", truncate(raw, 400))
 	}
-	if err := s.stderr.String(); !strings.Contains(err, "provider") && !strings.Contains(err, "API_KEY") {
-		t.Errorf("stderr does not say what is missing: %q", err)
+	if got.Count == 0 || len(got.Candidates) == 0 {
+		t.Fatalf("no candidates returned: %s", truncate(raw, 400))
 	}
-	if len(s.stdout) > 0 {
-		t.Errorf("wrote %d frames to stdout before failing: %v", len(s.stdout), s.stdout)
+	c := got.Candidates[0]
+	if c.RuleID == "" || c.File != "billing/client.py" || c.Context == "" {
+		t.Errorf("candidate lacks what the agent needs to judge: %+v", c)
+	}
+	if c.Verdict != nil {
+		t.Errorf("claimed a verdict with no provider configured: %v", c.Verdict)
+	}
+	if !strings.Contains(got.Rules, "DECISION PROCEDURE") {
+		t.Errorf("rules not included, so the agent judges by feel: %q", truncate(got.Rules, 80))
+	}
+	if !strings.Contains(got.Summary, "no AI provider") {
+		t.Errorf("summary does not say why: %q", got.Summary)
+	}
+
+	// Clean content still answers clean: nothing to judge is a fact, not a guess.
+	var clean agentPayload
+	s.callToolInto("scan_text", map[string]any{"content": "print(\"hello\")\n", "filename": "app.py"}, &clean)
+	if !clean.Clean || clean.Count != 0 || clean.NeedsAdjudication {
+		t.Errorf("clean content reported as %+v", clean)
+	}
+
+	// verify_finding must not crash with no verifier behind it.
+	var one agentPayload
+	s.callToolInto("verify_finding", map[string]any{"secret": stripeKey, "context": "api_key = ..."}, &one)
+	if !one.NeedsAdjudication || one.Rules == "" {
+		t.Errorf("verify_finding did not hand the rules over: %+v", one)
+	}
+
+	if err := s.stderr.String(); !strings.Contains(err, "no AI provider configured") {
+		t.Errorf("stderr does not say the operator has no provider: %q", err)
+	}
+}
+
+// send_secret = false is the strict-privacy setting. It must hold on this path
+// too: the agent gets a masked value, not the credential.
+func TestMCPDelegatedCandidatesHonorSendSecret(t *testing.T) {
+	s := start(t, "[ai]\nmode = \"on\"\nsend_secret = false\n")
+	s.handshake()
+	var got agentPayload
+	raw := s.callToolInto("scan_text", map[string]any{
+		"content":  fmt.Sprintf("stripe.api_key = %q\n", stripeKey),
+		"filename": "billing/client.py",
+	}, &got)
+	if len(got.Candidates) == 0 {
+		t.Fatalf("no candidates: %s", truncate(raw, 300))
+	}
+	if strings.Contains(raw, stripeKey) {
+		t.Error("raw secret sent to the agent with send_secret = false")
+	}
+	if !strings.Contains(got.Candidates[0].Secret, "*") {
+		t.Errorf("candidate secret not masked: %q", got.Candidates[0].Secret)
 	}
 }
 

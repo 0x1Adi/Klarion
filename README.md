@@ -80,7 +80,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: 0x1Adi/Klarion@v0.3.6
+      - uses: 0x1Adi/Klarion@v0.3.7
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
@@ -94,7 +94,7 @@ the [reference](./docs/reference.md).
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/0x1Adi/Klarion
-    rev: v0.3.6
+    rev: v0.3.7
     hooks:
       - id: klarion
         stages: [pre-commit]
@@ -146,7 +146,8 @@ Full method and data: [benchmark/REPORT.md](./benchmark/REPORT.md).
 ## Limits
 
 - **It needs a model.** Without one, `klarion scan` and the commit hooks stop with an error.
-  The Claude Code hook still blocks provider keys such as AWS, GitHub and Stripe.
+  The Claude Code hook still blocks provider keys such as AWS, GitHub and Stripe, and the MCP
+  server hands the candidates and its rules to your agent to judge.
 - **The model can be wrong.** Check what it hid with `--show-suppressed`.
 - **It finds secrets, it does not fix them.** Rotate any secret it finds.
 - **Local hooks can be skipped** with `git commit --no-verify`. Run Klarion in CI too, with

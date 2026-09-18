@@ -87,7 +87,7 @@ func (s *Server) toolScanText(ctx context.Context, id json.RawMessage, args json
 		path = "<scan_text>"
 	}
 	findings := s.scanToVerdicts(ctx, path, []byte(a.Content))
-	s.respond(id, findingsResult(findings))
+	s.respond(id, s.findingsResult(findings))
 }
 
 func (s *Server) toolScanFile(ctx context.Context, id json.RawMessage, args json.RawMessage) {
@@ -104,7 +104,7 @@ func (s *Server) toolScanFile(ctx context.Context, id json.RawMessage, args json
 		return
 	}
 	findings := s.scanToVerdicts(ctx, a.Path, content)
-	s.respond(id, findingsResult(findings))
+	s.respond(id, s.findingsResult(findings))
 }
 
 func (s *Server) toolVerifyFinding(ctx context.Context, id json.RawMessage, args json.RawMessage) {
@@ -120,6 +120,21 @@ func (s *Server) toolVerifyFinding(ctx context.Context, id json.RawMessage, args
 	ruleID := a.RuleID
 	if ruleID == "" {
 		ruleID = "manual"
+	}
+	if s.delegating() {
+		value := a.Secret
+		if !s.cfg.AI.SendSecret {
+			value = finding.Redact(value)
+		}
+		s.respond(id, jsonResult(map[string]any{
+			"adjudicated_by":     "calling-agent",
+			"needs_adjudication": true,
+			"summary": "Klarion has no AI provider configured and did not judge this candidate. " +
+				"Apply the rules below; treat uncertain as secret.",
+			"candidate": map[string]any{"rule_id": ruleID, "secret": value, "context": a.Context},
+			"rules":     verify.Rules(),
+		}))
+		return
 	}
 	batch := []verify.Request{{
 		Index:   0,
@@ -142,7 +157,10 @@ func (s *Server) toolVerifyFinding(ctx context.Context, id json.RawMessage, args
 
 // --- MCP tool result shaping ----------------------------------------------
 
-func findingsResult(findings []finding.Finding) map[string]any {
+func (s *Server) findingsResult(findings []finding.Finding) map[string]any {
+	if s.delegating() {
+		return s.agentResult(findings)
+	}
 	summary := "No secrets detected — the content appears clean."
 	if len(findings) > 0 {
 		summary = fmt.Sprintf("%d potential secret(s) detected. Review before writing/committing.", len(findings))
@@ -154,6 +172,28 @@ func findingsResult(findings []finding.Finding) map[string]any {
 		"findings": findings,
 	}
 	return jsonResult(payload)
+}
+
+// agentResult hands the candidates to the calling agent together with the rules
+// Klarion's own verifier follows. The verdict is then the agent's, not
+// Klarion's, and the payload says so: no benchmark claim attaches to this path.
+func (s *Server) agentResult(fs []finding.Finding) map[string]any {
+	if len(fs) == 0 {
+		return jsonResult(map[string]any{
+			"clean": true, "count": 0,
+			"adjudicated_by": "calling-agent", "needs_adjudication": false,
+			"summary": "No secret candidates detected — nothing to judge.",
+		})
+	}
+	return jsonResult(map[string]any{
+		"clean": false, "count": len(fs),
+		"adjudicated_by": "calling-agent", "needs_adjudication": true,
+		"summary": fmt.Sprintf("Klarion has no AI provider configured, so it did not judge these %d "+
+			"candidate(s). Apply the rules below to each one. Treat uncertain as secret: do not write or "+
+			"commit a value you judge to be a secret, tell the user, and move it to a secrets manager.", len(fs)),
+		"rules":      verify.Rules(),
+		"candidates": verify.Candidates(fs, &s.cfg.AI),
+	})
 }
 
 func jsonResult(payload any) map[string]any {

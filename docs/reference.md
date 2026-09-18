@@ -70,7 +70,7 @@ and `--force` would delete it.
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/0x1Adi/Klarion
-    rev: v0.3.6
+    rev: v0.3.7
     hooks:
       - id: klarion           # builds Klarion with Go on first use
         stages: [pre-commit]  # without this line the hook stays off
@@ -106,7 +106,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0       # needed so a PR's base commit is available
-      - uses: 0x1Adi/Klarion@v0.3.6
+      - uses: 0x1Adi/Klarion@v0.3.7
         with:
           fail-on-severity: medium
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -123,7 +123,7 @@ That is the whole configuration. By default the action:
   `ai-mode: auto` continues with a warning and raw entropy output, which is
   too noisy to rely on.
 - **installs the scanner matching the release you pinned**, by tag or commit
-  SHA: `@v0.3.6` runs the v0.3.6 binary, and `@v0` runs the release `v0`
+  SHA: `@v0.3.7` runs the v0.3.7 binary, and `@v0` runs the release `v0`
   points to.
 - **lists findings in the job log and as annotations**: file, line, rule and
   verdict, never the value. If GitHub rejects the Security tab upload (a
@@ -134,7 +134,7 @@ That is the whole configuration. By default the action:
 Useful overrides:
 
 ```yaml
-      - uses: 0x1Adi/Klarion@v0.3.6
+      - uses: 0x1Adi/Klarion@v0.3.7
         with:
           scan-mode: full          # auto | diff | full | history
           base: ${{ github.event.pull_request.base.sha }}
@@ -177,8 +177,14 @@ line to add under `[allowlist]` if the user confirms a false positive. The hook 
 approves a call, so Claude Code's own permission prompts still apply. With no model configured,
 the hook blocks provider keys only and says it could not judge the rest. It uses your
 Claude Code login only if you set `provider = "claude-cli"`. The plugin does not start
-the MCP server: `klarion mcp` needs a model and exits without one, which would show as a
-failed server for every install without a key. Add it yourself once a model is set.
+the MCP server; add it yourself.
+
+**The MCP server with no model.** An MCP session always has an agent on the other end, so
+`klarion mcp` starts without a provider and returns each candidate with the same decision
+rules Klarion's own verifier follows, for that agent to judge. The payload says
+`adjudicated_by: "calling-agent"` and claims no verdict, `send_secret = false` still masks
+the value, and the benchmark numbers do not apply to that path: the judgment is your agent's,
+not Klarion's. Configure a provider and Klarion judges instead, as everywhere else.
 
 ## Adopting it on a repo that already has findings
 

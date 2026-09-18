@@ -168,10 +168,23 @@ func (s *Server) initializeResult(params json.RawMessage) map[string]any {
 		"protocolVersion": version,
 		"capabilities":    map[string]any{"tools": map[string]any{}},
 		"serverInfo":      map[string]any{"name": serverName, "version": s.version},
-		"instructions": "Call scan_text before writing generated code, or scan_file " +
-			"before committing, to detect leaked secrets. verify_finding adjudicates a " +
-			"single candidate. Klarion errs toward flagging when uncertain.",
+		"instructions":    s.instructions(),
 	}
+}
+
+// instructions is what the client shows its model about this server. When no
+// provider is configured it must say who judges, or the agent treats a list of
+// candidates as a list of findings.
+func (s *Server) instructions() string {
+	base := "Call scan_text before writing generated code, or scan_file " +
+		"before committing, to detect leaked secrets. verify_finding adjudicates a " +
+		"single candidate. Klarion errs toward flagging when uncertain."
+	if s.delegating() {
+		return base + " No AI provider is configured for Klarion, so results arrive as " +
+			"candidates plus Klarion's decision rules: you must judge each candidate " +
+			"yourself and treat uncertain as secret."
+	}
+	return base
 }
 
 // --- write helpers ---------------------------------------------------------
@@ -204,6 +217,12 @@ func idOrNull(id json.RawMessage) json.RawMessage {
 	return id
 }
 
+// delegating reports whether adjudication falls to the calling agent. The
+// server is constructed with a nil verifier when no provider is configured: an
+// MCP session always has an agent on the other end, so the candidates and the
+// rules go to it rather than the scan producing nothing.
+func (s *Server) delegating() bool { return s.verifier == nil }
+
 // scanToVerdicts runs the full pipeline over one blob and returns the
 // (sanitized) findings, verdicts applied.
 func (s *Server) scanToVerdicts(ctx context.Context, path string, content []byte) []finding.Finding {
@@ -216,6 +235,11 @@ func (s *Server) scanToVerdicts(ctx context.Context, path string, content []byte
 	// model call per line), and a candidate the verifier rejected is not a
 	// finding: an agent that gets rejected candidates back learns to ignore us.
 	candidates = finding.CollapseKeyBlocks(candidates)
+	if s.delegating() {
+		// Values stay intact here: verify.Candidates applies ai.send_secret on
+		// the way out, exactly as it would for a configured provider.
+		return candidates
+	}
 	if err := verify.Apply(ctx, s.verifier, &s.cfg.AI, candidates); err != nil {
 		fmt.Fprintf(os.Stderr, "klarion mcp: verify: %v\n", err)
 	}

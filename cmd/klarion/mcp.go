@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -28,7 +29,16 @@ MCP-capable client (Claude Code, etc.) at "klarion mcp".`,
 		}
 		v, err := verify.Build(&cfg.AI)
 		if err != nil {
-			return err
+			if !validAIMode(cfg.AI.Mode) {
+				return err // a bad ai.mode is a config error, not a missing key
+			}
+			// No provider. Unlike a CLI run, an MCP session always has an agent
+			// on the other end, so the server starts and returns candidates plus
+			// the decision rules for that agent to judge, rather than refusing
+			// to run. Never a model the operator did not configure.
+			fmt.Fprintf(os.Stderr, "klarion mcp: %v\n", err)
+			fmt.Fprintln(os.Stderr, "klarion mcp: no AI provider configured; the calling agent will be asked to judge candidates")
+			v = nil
 		}
 		// Flush the verdict cache when the client disconnects: an MCP session
 		// is long-lived and adjudicates the same candidates repeatedly.

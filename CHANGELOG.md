@@ -5,6 +5,22 @@ All notable changes to Klarion are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.7] - 2026-09-18
+
+### Added
+
+- **The MCP server works without a provider, by asking the agent it is already
+  talking to.** An MCP session always has an agent on the other end, so instead of
+  refusing to start, `klarion mcp` now returns each candidate together with the
+  decision rules Klarion's own verifier uses, and the agent judges them. The payload
+  is explicit about it: `adjudicated_by: "calling-agent"`, `needs_adjudication: true`,
+  and no verdict field, because Klarion did not judge. `send_secret = false` masks the
+  value on this path as on any other, and the `initialize` instructions tell the
+  client's model that judging is its job. Configure a provider and nothing changes:
+  Klarion adjudicates as before. The CLI, the Action, GitLab CI and the commit hooks
+  still require a model, because there is no agent there to ask.
+  The benchmark numbers describe the configured-provider path only.
+
 ## [0.3.6] - 2026-09-18
 
 ### Fixed
