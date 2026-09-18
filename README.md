@@ -60,6 +60,7 @@ Settings go in `.klarion.toml` under `[ai]`. All options are in the [reference](
 | --- | --- |
 | Scan a folder | `klarion scan .` |
 | Block commits that add a secret | `klarion protect` |
+| Block commits with the [pre-commit](https://pre-commit.com) framework | The `.pre-commit-config.yaml` below |
 | Stop Claude Code from writing a secret | `/plugin marketplace add 0x1Adi/Klarion` then `/plugin install klarion@klarion` |
 | Fail pull requests that add a secret | The GitHub Action below |
 | Start on a repo that already has findings | `klarion baseline create`, so only new secrets fail |
@@ -79,7 +80,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: 0x1Adi/Klarion@v0.3.3
+      - uses: 0x1Adi/Klarion@v0.3.4
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
@@ -88,6 +89,18 @@ On a pull request it scans only what the PR adds. It caches the AI answers, so u
 costs nothing. Findings show in the job log. On a private repo without GitHub Code Security,
 add `upload-sarif: "false"` to skip the Security tab upload. GitLab CI and every option are in
 the [reference](./docs/reference.md).
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/0x1Adi/Klarion
+    rev: v0.3.4
+    hooks:
+      - id: klarion
+```
+
+The `klarion` hook builds Klarion with Go the first time it runs. If klarion is already
+installed, use `id: klarion-system`. Everyone who commits needs a model set up.
 
 ## Results
 
@@ -129,11 +142,12 @@ Full method and data: [benchmark/REPORT.md](./benchmark/REPORT.md).
 
 ## Limits
 
-- **It needs a model.** Without one, `klarion scan` stops with an error. The Claude Code hook
-  still blocks provider keys such as AWS, GitHub and Stripe.
+- **It needs a model.** Without one, `klarion scan` and the commit hooks stop with an error.
+  The Claude Code hook still blocks provider keys such as AWS, GitHub and Stripe.
 - **The model can be wrong.** Check what it hid with `--show-suppressed`.
 - **It finds secrets, it does not fix them.** Rotate any secret it finds.
-- **Local hooks can be skipped** with `git commit --no-verify`. Run Klarion in CI too.
+- **Local hooks can be skipped** with `git commit --no-verify`. Run Klarion in CI too, with
+  the Action. The pre-commit hook checks staged changes only, so in CI it has nothing to check.
 
 ## More
 

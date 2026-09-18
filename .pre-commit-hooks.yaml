@@ -1,0 +1,16 @@
+# Hooks for the pre-commit framework (https://pre-commit.com). Both run
+# `klarion git`, the same scan `klarion protect` installs: it reads the staged
+# content from the index and fails the commit on a real secret.
+# pass_filenames stays false: `klarion git` takes a directory, not file names.
+- id: klarion
+  name: Klarion secret scan
+  description: Blocks commits that add a secret. Builds Klarion with Go on first use.
+  entry: klarion git
+  language: golang
+  pass_filenames: false
+- id: klarion-system
+  name: Klarion secret scan
+  description: Blocks commits that add a secret. Uses the klarion binary on your PATH.
+  entry: klarion git
+  language: system
+  pass_filenames: false

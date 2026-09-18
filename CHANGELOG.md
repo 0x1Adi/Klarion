@@ -5,6 +5,16 @@ All notable changes to Klarion are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.4] - 2026-09-17
+
+### Added
+
+- **pre-commit framework support.** Add the Klarion repo to `.pre-commit-config.yaml`
+  with `id: klarion`, which builds Klarion with Go, or `id: klarion-system`, which runs
+  the installed binary. Both run `klarion git`, the same scan as `klarion protect`, which
+  refuses to replace an existing pre-commit hook. Without an AI provider the hook exits 2.
+  In CI nothing is staged, so use the Action there.
+
 ## [0.3.3] - 2026-09-17
 
 ### Security
