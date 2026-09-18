@@ -40,3 +40,7 @@ testdata/leaky.env
 .klarion/
 .claude/
 .DS_Store
+
+# Session scratch. Internal handoffs, rerun scripts and working notes.
+# Not product, and not for a public repo.
+Claude outputs/
