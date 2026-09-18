@@ -1,0 +1,43 @@
+{
+  "manifest_version": "0.3",
+  "name": "klarion",
+  "display_name": "Klarion",
+  "version": "__VERSION__",
+  "description": "Finds secrets in code and has a model decide which ones are real.",
+  "long_description": "Klarion flags candidate secrets with curated provider rules and a Rényi-entropy sweep, then adjudicates each candidate with a model so placeholders, fixtures and identifiers do not reach you. Configure an API key and Klarion judges. Configure nothing and it returns each candidate with its decision rules for the agent that called it to judge.",
+  "author": { "name": "The Klarion Authors", "url": "https://github.com/0x1Adi/Klarion" },
+  "homepage": "https://github.com/0x1Adi/Klarion",
+  "documentation": "https://github.com/0x1Adi/Klarion/blob/main/docs/reference.md",
+  "repository": { "type": "git", "url": "https://github.com/0x1Adi/Klarion" },
+  "license": "MIT",
+  "keywords": ["security", "secrets", "secret-scanning", "credentials", "appsec"],
+  "server": {
+    "type": "binary",
+    "entry_point": "server/launch.sh",
+    "mcp_config": {
+      "command": "sh",
+      "args": ["${__dirname}/server/launch.sh", "mcp"],
+      "env": { "ANTHROPIC_API_KEY": "${user_config.anthropic_api_key}" },
+      "platform_overrides": {
+        "win32": {
+          "command": "${__dirname}\\server\\klarion-windows-amd64.exe",
+          "args": ["mcp"]
+        }
+      }
+    }
+  },
+  "tools": [
+    { "name": "scan_text", "description": "Scan text or source code for leaked secrets before writing it." },
+    { "name": "scan_file", "description": "Scan a file on disk for leaked secrets before committing it." },
+    { "name": "verify_finding", "description": "Adjudicate one candidate secret: real leak or false positive." }
+  ],
+  "user_config": {
+    "anthropic_api_key": {
+      "type": "string",
+      "title": "Anthropic API key",
+      "description": "Optional. With a key Klarion judges each candidate itself. Without one it returns the candidates and its decision rules for your agent to judge.",
+      "sensitive": true,
+      "required": false
+    }
+  }
+}

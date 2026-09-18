@@ -1,0 +1,26 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.0x1Adi/klarion",
+  "title": "Klarion",
+  "description": "Secret scanning for AI agents: rules and entropy find candidates, a model decides which are real.",
+  "version": "__VERSION__",
+  "repository": { "url": "https://github.com/0x1Adi/Klarion", "source": "github" },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/0x1Adi/Klarion/releases/download/v__VERSION__/klarion-mcp-v__VERSION__.mcpb",
+      "version": "__VERSION__",
+      "fileSha256": "__SHA256__",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        {
+          "name": "ANTHROPIC_API_KEY",
+          "description": "Optional. With a key Klarion adjudicates candidates itself; without one it hands them to the calling agent to judge.",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}

@@ -63,3 +63,18 @@ jobs:
           # It CANNOT push to a separate tap repo — that needs a PAT, added
           # back with the `brews:` block in v0.1.1.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # The MCP registry lists a bundle, not a repository: one .mcpb carrying
+      # every platform binary, because neither the MCPB manifest nor server.json
+      # can express a CPU architecture. Built here so the asset the registry
+      # points at is the one this tag produced.
+      - name: Pack the MCP Bundle
+        run: sh scripts/pack-mcpb.sh "${GITHUB_REF_NAME}" mcpb-dist
+
+      - name: Attach the bundle to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${GITHUB_REF_NAME}" \
+            "mcpb-dist/klarion-mcp-${GITHUB_REF_NAME}.mcpb" --clobber
+          sha256sum "mcpb-dist/klarion-mcp-${GITHUB_REF_NAME}.mcpb"

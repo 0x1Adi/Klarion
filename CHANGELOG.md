@@ -5,6 +5,18 @@ All notable changes to Klarion are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.8] - 2026-09-18
+
+### Added
+
+- **Releases carry an MCP Bundle** (`klarion-mcp-vX.Y.Z.mcpb`), so the server can be
+  installed from the MCP registry or any client that takes a bundle. One bundle holds
+  every platform binary and picks one at run time, because neither the MCPB manifest
+  nor `server.json` can express a CPU architecture. The API key is declared optional:
+  with one Klarion judges, without one the calling agent does. `sh scripts/pack-mcpb.sh
+  vX.Y.Z` builds the same bundle locally, and `mcpb/server.json` carries the registry
+  metadata, with the version and file hash filled in at pack time.
+
 ## [0.3.7] - 2026-09-18
 
 ### Added
