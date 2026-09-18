@@ -62,6 +62,7 @@ Settings go in `.klarion.toml` under `[ai]`. All options are in the [reference](
 | Block commits that add a secret | `klarion protect` |
 | Block commits with the [pre-commit](https://pre-commit.com) framework | The `.pre-commit-config.yaml` below |
 | Stop Claude Code from writing a secret | `/plugin marketplace add 0x1Adi/Klarion` then `/plugin install klarion@klarion` |
+| Stop Cline, Cursor or any MCP agent from writing a secret | The MCP server below |
 | Fail pull requests that add a secret | The GitHub Action below |
 | Start on a repo that already has findings | `klarion baseline create`, so only new secrets fail |
 
@@ -104,6 +105,24 @@ Without the `stages` line the hook is off and runs only when you ask for it, wit
 `pre-commit run --hook-stage manual klarion`. The `klarion` hook builds Klarion with Go the
 first time it runs; use `id: klarion-system` if klarion is already installed. Everyone who
 commits needs a model set up.
+
+```json
+// ~/.cline/mcp.json, or the MCP settings of any other client
+{
+  "mcpServers": {
+    "klarion": {
+      "command": "klarion",
+      "args": ["mcp"],
+      "autoApprove": ["scan_text", "scan_file", "verify_finding"]
+    }
+  }
+}
+```
+
+The agent calls `scan_text` before it writes code and `scan_file` before it commits. With no
+model configured the server hands each candidate and its decision rules to that agent to judge,
+so it needs no API key. Configure one and Klarion judges instead. Full steps, including the
+tools and how to verify the install: [llms-install.md](./llms-install.md).
 
 ## Results
 

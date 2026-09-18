@@ -11,8 +11,8 @@ Stops Claude Code from writing or committing leaked secrets. It adds:
   never approves a call, so your permission prompts still apply.
 - **`/klarion:scan`** to scan the project, or a path, on demand.
 
-Klarion also has an MCP server (`klarion mcp`). It needs a model configured and
-exits without one, so the plugin does not start it.
+Klarion also has an MCP server (`klarion mcp`). The plugin does not start it; add it
+to your MCP settings yourself, see [llms-install.md](../llms-install.md).
 
 ## Prerequisites
 
