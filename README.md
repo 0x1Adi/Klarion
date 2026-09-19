@@ -112,14 +112,14 @@ commits needs a model set up.
   "mcpServers": {
     "klarion": {
       "command": "klarion",
-      "args": ["mcp"],
-      "autoApprove": ["scan_text", "scan_file", "verify_finding"]
+      "args": ["mcp"]
     }
   }
 }
 ```
 
-The agent calls `scan_text` before it writes code and `scan_file` before it commits. With no
+The agent calls `scan_text` before it writes code and `scan_file` before it commits. Approve
+each call rather than auto-approving the server: `scan_file` reads any path it is given. With no
 model configured the server hands each candidate and its decision rules to that agent to judge,
 so it needs no API key. Configure one and Klarion judges instead. Full steps, including the
 tools and how to verify the install: [llms-install.md](./llms-install.md).

@@ -33,12 +33,17 @@ Add this entry to the MCP settings file. In Cline that is `~/.cline/mcp.json`, o
     "klarion": {
       "command": "klarion",
       "args": ["mcp"],
-      "disabled": false,
-      "autoApprove": ["scan_text", "scan_file", "verify_finding"]
+      "disabled": false
     }
   }
 }
 ```
+
+**Do not add `klarion` to the client's auto-approve list.** `scan_file` reads any path it is
+given, and with no API key configured the result hands the calling agent the candidate value
+itself. Auto-approving it lets text the agent happens to read cause a file like
+`~/.aws/credentials` to be opened and its contents put in the model's context, with nobody
+asked first. Approve each call.
 
 If the editor cannot find `klarion` on its `PATH`, use the absolute path from `which klarion`
 (Windows: `where klarion`) as `command`.
