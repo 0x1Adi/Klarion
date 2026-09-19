@@ -47,6 +47,8 @@ func (c *commandVerifier) Verify(ctx context.Context, batch []Request) ([]findin
 		r.Index = i
 		prompt[i] = r
 	}
+	// #nosec G117 -- the candidate secret is the payload: judging it is the
+	// point, and it goes only to the stdin of the command the operator configured.
 	body, _ := json.Marshal(prompt)
 
 	// #nosec G204 -- argv is operator config, no shell; the batch travels on stdin.

@@ -81,7 +81,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: 0x1Adi/Klarion@v0.4.0
+      - uses: 0x1Adi/Klarion@v0.4.1
         with:
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
@@ -95,7 +95,7 @@ the [reference](./docs/reference.md).
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/0x1Adi/Klarion
-    rev: v0.4.0
+    rev: v0.4.1
     hooks:
       - id: klarion
         stages: [pre-commit]

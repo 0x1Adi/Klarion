@@ -5,6 +5,10 @@ All notable changes to Klarion are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-09-19
+
+- gosec G117 suppression in the command provider; no behavior change.
+
 ## [0.4.0] - 2026-09-19
 
 ### Security
