@@ -167,6 +167,7 @@ Full method and data: [benchmark/REPORT.md](./benchmark/REPORT.md).
 - **It needs a model.** Without one, `klarion scan` and the commit hooks stop with an error.
   The Claude Code hook still blocks provider keys such as AWS, GitHub and Stripe, and the MCP
   server hands the candidates and its rules to your agent to judge.
+- **No API key?** A hosted version with no setup is coming. [Join the list](https://docs.google.com/forms/d/e/1FAIpQLSeCN5u6hwRSel0GTUXQ4fC1fyCB5FAcruun1BgsPWR-BCaf-w/viewform).
 - **The model can be wrong.** Check what it hid with `--show-suppressed`.
 - **It finds secrets, it does not fix them.** Rotate any secret it finds.
 - **Local hooks can be skipped** with `git commit --no-verify`. Run Klarion in CI too, with
