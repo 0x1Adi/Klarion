@@ -652,3 +652,117 @@ Files over 8 MiB were not sampled (at most 1.2% of each labeled stratum, 2.2% of
 
 `benchmark/creddata/README.txt`: fetch and build (about 15 minutes), scan, score, sample and
 score the model run. The dataset is not committed.
+
+---
+
+## 15. Addendum — a small local model as the judge (2026-09-19)
+
+### Why this was measured
+
+Klarion needs an API key. That costs installs. The question: can a small local model do
+the judge's job, so Klarion runs with no key? The cheapest test is a model that already
+exists. CredSweeper (Samsung, MIT) ships an 11.5 MB ONNX model, a BiLSTM with hand-made
+features, trained on CredData. We used it as Klarion's judge and measured.
+
+### Method
+
+Detection is unchanged. A new provider, `ai.provider = "command"`, runs any program as the
+judge: the batch of candidates goes in as JSON, verdicts come back in the same shape the
+model providers return. The program here is `benchmark/credsweeper/credsweeper_judge.py`.
+It runs CredSweeper 1.18.4 over the batch's files with `--ml_threshold 0.0001`, so every
+line CredSweeper extracts gets a probability, then joins those onto Klarion's candidates by
+file and line.
+
+Verdicts: probability at or above 0.622 (CredSweeper's "medium" preset) is a secret; below
+0.229 ("lowest") is a false positive; between is uncertain. A Klarion candidate on a line
+where CredSweeper extracted nothing is called "nomatch". Nomatch was judged false positive
+in one run and uncertain in another, because neither is obviously right.
+
+Corpora and config are the §2 and §3 harness (leaky-repo, flask, rails), same settings as
+the haiku run except the provider. One run each, one laptop.
+
+### Result
+
+| corpus | candidates | haiku (claude-cli) | CredSweeper, nomatch = false positive | CredSweeper, nomatch = uncertain |
+|---|---:|---|---|---|
+| leaky-repo, risk files found of 42 | 89 | 29 (recall 0.69, precision 1.00), 206 s | 20 (0.48, 1.00), 1.1 s | 39 (0.93, 0.95), 1.2 s |
+| flask, noise findings | 35 | 1, 75 s | 3, 1.2 s | not run |
+| rails, noise findings | 763 | 8, 744 s | 68, 9.4 s | not run; it would keep 665 nomatch lines |
+
+Nomatch share of Klarion's candidates: leaky 45 of 89 (51%), flask 32 of 35 (91%), rails
+665 of 763 (87%).
+
+### What the model did
+
+**Speed is real.** 12 seconds against 17 minutes for the three corpora. The haiku time is
+mostly `claude -p` startup, as §4 notes, but a local model is faster than any API call.
+
+**On rails it says "secret" to fixtures.** CredSweeper extracted 98 of the 763 candidates.
+It called 58 of them secrets at 0.622 or above, 10 uncertain, 30 false positive. All 68 kept
+are noise on a clean corpus. haiku kept 8. The 58 are passwords and tokens in test and
+config files. CredSweeper's model learned CredData's definition, where a credential in a
+test directory counts as real (74% of CredData's true lines, §14). Klarion's definition
+calls that a fixture. Neither tool is wrong. They answer different questions.
+
+**On leaky the 45 nomatch lines fall into three groups.**
+
+- 21 are `name = value` passwords in config files: `.env`, `.netrc`, `wp-config.php`,
+  filezilla and dbeaver XML, Firefox `logins.json`, `.ini` files, shell rc files.
+  CredSweeper reported nothing on these lines. After its shape match it runs value filters
+  (dictionary words, short values, placeholder patterns), and leaky's passwords are short
+  fakes. Which filter fired was not checked. On rails the same shape is 114 nomatch lines,
+  and those are fixtures. Same shape, opposite label. Only the surrounding context tells
+  them apart, and that is the model's job.
+- 16 are password hashes and dump lines: `etc/shadow`, `.htpasswd`, `proftpdpasswd`,
+  `.pgpass`, eleven lines of `dump.sql`. No `name = value` shape, so nothing to extract.
+- 8 are bare key material and strings with no variable name: `master.key`, a `.ppk`,
+  `id_rsa.pub`, `high-entropy-misc.txt`, values inside XML.
+
+Klarion's credential-file and key-material rules already cover the last two groups.
+
+**Rails nomatch by Klarion rule:** generic-high-entropy 545, generic-secret-assignment 73,
+generic-password-assignment 41, url-credentials 3, postgres-connection-uri 3.
+
+### Conclusion
+
+No nomatch policy works. Drop those lines and leaky recall falls to 0.48. Keep them and
+rails keeps 665 noise lines. And on the lines the model does see, it disagrees with
+Klarion's definition on the one case that matters, fixture or real, which needs context an
+11 MB model of one line does not have.
+
+So there is no keyless mode in this. The model judge stays required. That is §12's
+conclusion again, reached from the other side.
+
+Two things are kept. The `command` provider: any local program can be the judge, same
+contract as the model providers. And one observation: 545 of rails' 763 candidates are
+high-entropy tokens that CredSweeper's `name = value` extractor rejects. A structural gate
+of that kind, run before the model, would cut model calls by about 70% on code-heavy
+repositories. It would not make a keyless mode: rails would still keep about 218
+candidates against haiku's 8. Not built. Recorded as a cost option.
+
+### Limitations
+
+This measures CredSweeper's model on Klarion's candidates through a line join. It is not a
+benchmark of CredSweeper the scanner, which has its own extraction, rules and filters and
+was not run on its own here. CredSweeper's model was trained on CredData, so the §14
+sample was not scored with it. Thresholds are CredSweeper's presets; nothing was tuned. One
+run each.
+
+leaky-repo's ground truth counts short fake passwords as real. The haiku judge drops 10 risk
+files there by calling them fixtures. On a real repository that is the wanted behavior.
+Leaky recall is not a target for the judge.
+
+### Reproduce
+
+```sh
+pip install credsweeper
+go build -o klarion ./cmd/klarion
+cd benchmark/harness
+python3 run_benchmark.py klarion-cs leaky,flask,rails   # nomatch = false positive
+python3 run_benchmark.py klarion-cs-unc leaky           # nomatch = uncertain
+```
+
+Config: `benchmark/harness/klarion-cs.toml`. Judge: `benchmark/credsweeper/credsweeper_judge.py`
+(`--selftest` checks one key, one placeholder, one identifier; `KLARION_CS_DUMP=<file>`
+writes one JSON line per candidate). Results: `results/accuracy.json`, rows `klarion-cs`
+and `klarion-cs-unc`.

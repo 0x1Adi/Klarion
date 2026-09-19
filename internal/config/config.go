@@ -112,9 +112,14 @@ type AIConfig struct {
 	Mode string `toml:"mode"`
 	// Provider: "anthropic" (Messages API over plain net/http, no SDK),
 	// "openai" (any OpenAI-compatible endpoint), "ollama" (alias for openai
-	// with a localhost default URL) or "claude-cli" (shell out to a logged-in
-	// Claude Code CLI; no API key).
+	// with a localhost default URL), "claude-cli" (shell out to a logged-in
+	// Claude Code CLI; no API key) or "command" (run ai.command as the judge).
 	Provider string `toml:"provider"`
+	// Command is the judge program for provider "command", split on
+	// whitespace (no shell). It reads a JSON array of candidates on stdin and
+	// prints {"results":[{"index","status","confidence","reason"}]}. Lets a
+	// local classifier adjudicate with no key and no network.
+	Command string `toml:"command"`
 	// Model: default "claude-haiku-4-5" — fast, cheap classification.
 	Model   string `toml:"model"`
 	BaseURL string `toml:"base_url"`
@@ -250,28 +255,45 @@ func Default() *Config {
 
 // Load reads a TOML config file layered on top of Default().
 func Load(path string) (*Config, error) {
+	c, _, err := load(path)
+	return c, err
+}
+
+func load(path string) (*Config, toml.MetaData, error) {
 	c := Default()
 	meta, err := toml.DecodeFile(path, c)
 	if err != nil {
-		return nil, fmt.Errorf("config %s: %w", path, err)
+		return nil, meta, fmt.Errorf("config %s: %w", path, err)
 	}
 	if un := meta.Undecoded(); len(un) > 0 {
 		keys := make([]string, 0, len(un))
 		for _, k := range un {
 			keys = append(keys, k.String())
 		}
-		return nil, fmt.Errorf("config %s: unknown keys: %s", path, strings.Join(keys, ", "))
+		return nil, meta, fmt.Errorf("config %s: unknown keys: %s", path, strings.Join(keys, ", "))
 	}
 	c.normalize()
 	if err := c.compile(); err != nil {
-		return nil, fmt.Errorf("config %s: %w", path, err)
+		return nil, meta, fmt.Errorf("config %s: %w", path, err)
 	}
-	return c, nil
+	return c, meta, nil
 }
+
+// operatorOnlyKeys are [ai] keys that decide where candidate secrets are sent
+// or what program runs to judge them. A discovered .klarion.toml belongs to
+// the repository being scanned, which may be hostile: with these keys it could
+// point the model call at an attacker's server, hand it an arbitrary env var
+// as the bearer token, or run a command on every machine that scans it (CI,
+// commit hooks, the MCP server). They are honored only from a config the
+// operator chose: --config or $KLARION_CONFIG.
+var operatorOnlyKeys = []string{"command", "base_url", "api_key_env"}
 
 // FindAndLoad locates configuration for dir: $KLARION_CONFIG wins, then
 // .klarion.toml / klarion.toml walking up toward the filesystem root. When
 // nothing is found the defaults are returned with an empty source path.
+// A discovered file that sets an operator-only key is an error, not a silent
+// downgrade: ignoring base_url would quietly send the candidates to the
+// provider's public endpoint instead of the proxy the file named.
 func FindAndLoad(dir string) (*Config, string, error) {
 	if env := os.Getenv("KLARION_CONFIG"); env != "" {
 		c, err := Load(env)
@@ -285,8 +307,16 @@ func FindAndLoad(dir string) (*Config, string, error) {
 		for _, name := range []string{".klarion.toml", "klarion.toml"} {
 			p := filepath.Join(d, name)
 			if st, err := os.Stat(p); err == nil && !st.IsDir() {
-				c, err := Load(p)
-				return c, p, err
+				c, meta, err := load(p)
+				if err != nil {
+					return nil, p, err
+				}
+				for _, k := range operatorOnlyKeys {
+					if meta.IsDefined("ai", k) {
+						return nil, p, fmt.Errorf("config %s: ai.%s is only honored from --config or $KLARION_CONFIG, not from a discovered file (the scanned repository could otherwise choose where secrets are sent or what runs)", p, k)
+					}
+				}
+				return c, p, nil
 			}
 		}
 		if filepath.Dir(d) == d {

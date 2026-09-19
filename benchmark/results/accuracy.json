@@ -4304,5 +4304,985 @@
       ],
       "wall_seconds": 743.542
     }
+  },
+  "klarion-cs": {
+    "leaky": {
+      "total_findings": 35,
+      "files_covered": 20,
+      "gt_files": 44,
+      "file_coverage_pct": 45.45,
+      "capped_finds": 35,
+      "total_expected": 175,
+      "find_coverage_pct": 20.0,
+      "overage_fp_in_gt_files": 0,
+      "out_of_gt_files_flagged": [],
+      "out_of_gt_findings": 0,
+      "risk_files_total": 42,
+      "risk_files_detected": 20,
+      "risk_files_missed": [
+        ".esmtprc",
+        ".git-credentials",
+        ".idea/WebServers.xml",
+        ".mozilla/firefox/logins.json",
+        ".netrc",
+        ".vscode/sftp.json",
+        "config",
+        "db/.pgpass",
+        "db/dbeaver-data-sources.xml",
+        "db/dump.sql",
+        "db/mongoid.yml",
+        "db/robomongo.json",
+        "etc/shadow",
+        "filezilla/filezilla.xml",
+        "filezilla/recentservers.xml",
+        "misc-keys/putty-example.ppk",
+        "proftpdpasswd",
+        "ventrilo_srv.ini",
+        "web/js/salesforce.js",
+        "web/ruby/config/master.key",
+        "web/var/www/public_html/.htpasswd",
+        "web/var/www/public_html/config.php"
+      ],
+      "file_precision": 1.0,
+      "risk_file_recall": 0.4762,
+      "file_f1": 0.6452,
+      "per_file": [
+        {
+          "file": ".bash_profile",
+          "expected": 11,
+          "risk": 6,
+          "found": 3
+        },
+        {
+          "file": ".bashrc",
+          "expected": 6,
+          "risk": 3,
+          "found": 2
+        },
+        {
+          "file": ".docker/.dockercfg",
+          "expected": 4,
+          "risk": 2,
+          "found": 1
+        },
+        {
+          "file": ".docker/config.json",
+          "expected": 4,
+          "risk": 2,
+          "found": 1
+        },
+        {
+          "file": ".mozilla/firefox/logins.json",
+          "expected": 28,
+          "risk": 8,
+          "found": 0
+        },
+        {
+          "file": ".ssh/id_rsa",
+          "expected": 1,
+          "risk": 1,
+          "found": 1
+        },
+        {
+          "file": ".ssh/id_rsa.pub",
+          "expected": 1,
+          "risk": 0,
+          "found": 0
+        },
+        {
+          "file": "cloud/.credentials",
+          "expected": 4,
+          "risk": 2,
+          "found": 1
+        },
+        {
+          "file": "cloud/.s3cfg",
+          "expected": 3,
+          "risk": 1,
+          "found": 2
+        },
+        {
+          "file": "cloud/.tugboat",
+          "expected": 3,
+          "risk": 1,
+          "found": 2
+        },
+        {
+          "file": "cloud/heroku.json",
+          "expected": 2,
+          "risk": 1,
+          "found": 1
+        },
+        {
+          "file": "db/dump.sql",
+          "expected": 10,
+          "risk": 10,
+          "found": 0
+        },
+        {
+          "file": "db/mongoid.yml",
+          "expected": 1,
+          "risk": 1,
+          "found": 0
+        },
+        {
+          "file": "etc/shadow",
+          "expected": 1,
+          "risk": 1,
+          "found": 0
+        },
+        {
+          "file": "filezilla/recentservers.xml",
+          "expected": 6,
+          "risk": 3,
+          "found": 0
+        },
+        {
+          "file": "filezilla/filezilla.xml",
+          "expected": 3,
+          "risk": 2,
+          "found": 0
+        },
+        {
+          "file": "high-entropy-misc.txt",
+          "expected": 2,
+          "risk": 0,
+          "found": 0
+        },
+        {
+          "file": "misc-keys/cert-key.pem",
+          "expected": 1,
+          "risk": 1,
+          "found": 1
+        },
+        {
+          "file": "misc-keys/putty-example.ppk",
+          "expected": 2,
+          "risk": 1,
+          "found": 0
+        },
+        {
+          "file": "proftpdpasswd",
+          "expected": 1,
+          "risk": 1,
+          "found": 0
+        },
+        {
+          "file": "web/ruby/config/master.key",
+          "expected": 1,
+          "risk": 1,
+          "found": 0
+        },
+        {
+          "file": "web/ruby/secrets.yml",
+          "expected": 3,
+          "risk": 3,
+          "found": 3
+        },
+        {
+          "file": "web/var/www/.env",
+          "expected": 10,
+          "risk": 6,
+          "found": 1
+        },
+        {
+          "file": ".npmrc",
+          "expected": 3,
+          "risk": 2,
+          "found": 2
+        },
+        {
+          "file": "web/var/www/public_html/wp-config.php",
+          "expected": 12,
+          "risk": 9,
+          "found": 8
+        },
+        {
+          "file": "web/var/www/public_html/.htpasswd",
+          "expected": 1,
+          "risk": 1,
+          "found": 0
+        },
+        {
+          "file": ".git-credentials",
+          "expected": 1,
+          "risk": 1,
+          "found": 0
+        },
+        {
+          "file": "db/robomongo.json",
+          "expected": 7,
+          "risk": 3,
+          "found": 0
+        },
+        {
+          "file": "web/js/salesforce.js",
+          "expected": 1,
+          "risk": 1,
+          "found": 0
+        },
+        {
+          "file": ".netrc",
+          "expected": 2,
+          "risk": 2,
+          "found": 0
+        },
+        {
+          "file": "hub",
+          "expected": 2,
+          "risk": 1,
+          "found": 1
+        },
+        {
+          "file": "config",
+          "expected": 4,
+          "risk": 1,
+          "found": 0
+        },
+        {
+          "file": "db/.pgpass",
+          "expected": 1,
+          "risk": 1,
+          "found": 0
+        },
+        {
+          "file": "ventrilo_srv.ini",
+          "expected": 2,
+          "risk": 2,
+          "found": 0
+        },
+        {
+          "file": "web/var/www/public_html/config.php",
+          "expected": 4,
+          "risk": 1,
+          "found": 0
+        },
+        {
+          "file": "db/dbeaver-data-sources.xml",
+          "expected": 1,
+          "risk": 1,
+          "found": 0
+        },
+        {
+          "file": ".esmtprc",
+          "expected": 3,
+          "risk": 2,
+          "found": 0
+        },
+        {
+          "file": "web/django/settings.py",
+          "expected": 1,
+          "risk": 1,
+          "found": 1
+        },
+        {
+          "file": "deployment-config.json",
+          "expected": 4,
+          "risk": 3,
+          "found": 1
+        },
+        {
+          "file": ".ftpconfig",
+          "expected": 5,
+          "risk": 3,
+          "found": 1
+        },
+        {
+          "file": ".remote-sync.json",
+          "expected": 3,
+          "risk": 1,
+          "found": 1
+        },
+        {
+          "file": ".vscode/sftp.json",
+          "expected": 4,
+          "risk": 1,
+          "found": 0
+        },
+        {
+          "file": "sftp-config.json",
+          "expected": 4,
+          "risk": 1,
+          "found": 1
+        },
+        {
+          "file": ".idea/WebServers.xml",
+          "expected": 2,
+          "risk": 1,
+          "found": 0
+        }
+      ],
+      "wall_seconds": 1.067
+    },
+    "flask": {
+      "total_findings": 3,
+      "files_flagged": 2,
+      "by_rule": {
+        "generic-secret-assignment": 3
+      },
+      "findings": [
+        {
+          "file": "docs/config.rst",
+          "line": 41,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "docs/config.rst",
+          "line": 560,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "docs/tutorial/deploy.rst",
+          "line": 73,
+          "rule": "generic-secret-assignment"
+        }
+      ],
+      "wall_seconds": 1.187
+    },
+    "rails": {
+      "total_findings": 68,
+      "files_flagged": 43,
+      "by_rule": {
+        "generic-secret-assignment": 28,
+        "generic-password-assignment": 17,
+        "generic-high-entropy": 17,
+        "postgres-connection-uri": 4,
+        "url-credentials": 2
+      },
+      "findings": [
+        {
+          "file": "actionmailbox/test/controllers/ingresses/mailgun/inbound_emails_controller_test.rb",
+          "line": 8,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "actionmailbox/test/controllers/ingresses/mailgun/inbound_emails_controller_test.rb",
+          "line": 21,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "actionmailbox/test/controllers/ingresses/mailgun/inbound_emails_controller_test.rb",
+          "line": 137,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "actionmailbox/test/controllers/ingresses/mandrill/inbound_emails_controller_test.rb",
+          "line": 8,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "actionmailbox/test/test_helper.rb",
+          "line": 32,
+          "rule": "generic-password-assignment"
+        },
+        {
+          "file": "actionpack/test/controller/http_basic_authentication_test.rb",
+          "line": 54,
+          "rule": "generic-password-assignment"
+        },
+        {
+          "file": "actionpack/test/controller/http_basic_authentication_test.rb",
+          "line": 121,
+          "rule": "generic-password-assignment"
+        },
+        {
+          "file": "actionpack/test/controller/http_digest_authentication_test.rb",
+          "line": 45,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "actionpack/test/controller/http_token_authentication_test.rb",
+          "line": 145,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "actionpack/test/controller/http_token_authentication_test.rb",
+          "line": 152,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "actionpack/test/controller/http_token_authentication_test.rb",
+          "line": 180,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "actionpack/test/controller/request_forgery_protection_test.rb",
+          "line": 869,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "actionpack/test/controller/url_for_test.rb",
+          "line": 251,
+          "rule": "url-credentials"
+        },
+        {
+          "file": "actionpack/test/dispatch/cookies_test.rb",
+          "line": 379,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "actionpack/test/dispatch/cookies_test.rb",
+          "line": 1101,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "actionpack/test/dispatch/request_test.rb",
+          "line": 1330,
+          "rule": "generic-high-entropy"
+        },
+        {
+          "file": "actionpack/test/dispatch/request_test.rb",
+          "line": 1552,
+          "rule": "generic-high-entropy"
+        },
+        {
+          "file": "actionpack/test/dispatch/routing_test.rb",
+          "line": 797,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "actionpack/test/dispatch/session/cookie_store_test.rb",
+          "line": 10,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "actionpack/test/dispatch/session/cookie_store_test.rb",
+          "line": 220,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "actionview/lib/action_view/helpers/form_tag_helper.rb",
+          "line": 74,
+          "rule": "generic-high-entropy"
+        },
+        {
+          "file": "activemodel/lib/active_model/secure_password.rb",
+          "line": 93,
+          "rule": "generic-password-assignment"
+        },
+        {
+          "file": "activemodel/lib/active_model/secure_password.rb",
+          "line": 104,
+          "rule": "generic-high-entropy"
+        },
+        {
+          "file": "activemodel/lib/active_model/secure_password.rb",
+          "line": 109,
+          "rule": "generic-password-assignment"
+        },
+        {
+          "file": "activemodel/lib/active_model/secure_password.rb",
+          "line": 110,
+          "rule": "generic-password-assignment"
+        },
+        {
+          "file": "activemodel/test/cases/secure_password_test.rb",
+          "line": 307,
+          "rule": "generic-password-assignment"
+        },
+        {
+          "file": "activerecord/lib/active_record/secure_token.rb",
+          "line": 23,
+          "rule": "generic-high-entropy"
+        },
+        {
+          "file": "activerecord/lib/active_record/secure_token.rb",
+          "line": 25,
+          "rule": "generic-high-entropy"
+        },
+        {
+          "file": "activerecord/test/cases/adapters/mysql2/dbconsole_test.rb",
+          "line": 27,
+          "rule": "generic-password-assignment"
+        },
+        {
+          "file": "activerecord/test/cases/adapters/mysql2/mysql2_rake_test.rb",
+          "line": 105,
+          "rule": "generic-password-assignment"
+        },
+        {
+          "file": "activerecord/test/cases/adapters/postgresql/dbconsole_test.rb",
+          "line": 36,
+          "rule": "generic-password-assignment"
+        },
+        {
+          "file": "activerecord/test/cases/adapters/trilogy/dbconsole_test.rb",
+          "line": 27,
+          "rule": "generic-password-assignment"
+        },
+        {
+          "file": "activerecord/test/cases/adapters/trilogy/trilogy_rake_test.rb",
+          "line": 105,
+          "rule": "generic-password-assignment"
+        },
+        {
+          "file": "activerecord/test/cases/database_configurations/resolver_test.rb",
+          "line": 106,
+          "rule": "generic-password-assignment"
+        },
+        {
+          "file": "activerecord/test/cases/suppressor_test.rb",
+          "line": 23,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "activerecord/test/cases/suppressor_test.rb",
+          "line": 26,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "activerecord/test/cases/token_for_test.rb",
+          "line": 27,
+          "rule": "generic-password-assignment"
+        },
+        {
+          "file": "activestorage/test/dummy/config/secrets.yml",
+          "line": 16,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "activestorage/test/dummy/config/secrets.yml",
+          "line": 21,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "activestorage/test/dummy/config/secrets.yml",
+          "line": 24,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "activesupport/test/core_ext/hash_ext_test.rb",
+          "line": 733,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "activesupport/test/message_encryptor_test.rb",
+          "line": 58,
+          "rule": "generic-high-entropy"
+        },
+        {
+          "file": "activesupport/test/message_encryptor_test.rb",
+          "line": 148,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "guides/source/4_1_release_notes.md",
+          "line": 86,
+          "rule": "generic-high-entropy"
+        },
+        {
+          "file": "guides/source/active_model_basics.md",
+          "line": 1107,
+          "rule": "generic-password-assignment"
+        },
+        {
+          "file": "guides/source/active_model_basics.md",
+          "line": 1384,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "guides/source/active_record_encryption.md",
+          "line": 54,
+          "rule": "generic-high-entropy"
+        },
+        {
+          "file": "guides/source/active_record_encryption.md",
+          "line": 55,
+          "rule": "generic-high-entropy"
+        },
+        {
+          "file": "guides/source/active_record_encryption.md",
+          "line": 56,
+          "rule": "generic-high-entropy"
+        },
+        {
+          "file": "guides/source/active_record_encryption.md",
+          "line": 817,
+          "rule": "generic-high-entropy"
+        },
+        {
+          "file": "guides/source/command_line.md",
+          "line": 1403,
+          "rule": "generic-high-entropy"
+        },
+        {
+          "file": "guides/source/command_line.md",
+          "line": 1404,
+          "rule": "generic-high-entropy"
+        },
+        {
+          "file": "guides/source/command_line.md",
+          "line": 1405,
+          "rule": "generic-high-entropy"
+        },
+        {
+          "file": "guides/source/command_line.md",
+          "line": 1408,
+          "rule": "generic-high-entropy"
+        },
+        {
+          "file": "guides/source/configuring.md",
+          "line": 1703,
+          "rule": "generic-high-entropy"
+        },
+        {
+          "file": "guides/source/debugging_rails_applications.md",
+          "line": 183,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "guides/source/getting_started.md",
+          "line": 1629,
+          "rule": "generic-password-assignment"
+        },
+        {
+          "file": "railties/lib/rails/generators/rails/app/templates/config/databases/mysql.yml.tt",
+          "line": 42,
+          "rule": "url-credentials"
+        },
+        {
+          "file": "railties/lib/rails/generators/rails/app/templates/config/databases/postgresql.yml.tt",
+          "line": 25,
+          "rule": "generic-password-assignment"
+        },
+        {
+          "file": "railties/lib/rails/generators/rails/app/templates/github/ci.yml.tt",
+          "line": 148,
+          "rule": "postgres-connection-uri"
+        },
+        {
+          "file": "railties/lib/rails/generators/rails/plugin/templates/github/ci.yml.tt",
+          "line": 105,
+          "rule": "postgres-connection-uri"
+        },
+        {
+          "file": "railties/test/application/assets_test.rb",
+          "line": 84,
+          "rule": "postgres-connection-uri"
+        },
+        {
+          "file": "railties/test/application/configuration_test.rb",
+          "line": 822,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "railties/test/application/configuration_test.rb",
+          "line": 1033,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "railties/test/application/configuration_test.rb",
+          "line": 1254,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "railties/test/application/sprockets_assets_test.rb",
+          "line": 121,
+          "rule": "postgres-connection-uri"
+        },
+        {
+          "file": "railties/test/application/url_generation_test.rb",
+          "line": 23,
+          "rule": "generic-secret-assignment"
+        },
+        {
+          "file": "railties/test/isolation/abstract_unit.rb",
+          "line": 340,
+          "rule": "generic-secret-assignment"
+        }
+      ],
+      "wall_seconds": 9.296
+    }
+  },
+  "klarion-cs-unc": {
+    "leaky": {
+      "total_findings": 80,
+      "files_covered": 41,
+      "gt_files": 44,
+      "file_coverage_pct": 93.18,
+      "capped_finds": 77,
+      "total_expected": 175,
+      "find_coverage_pct": 44.0,
+      "overage_fp_in_gt_files": 3,
+      "out_of_gt_files_flagged": [],
+      "out_of_gt_findings": 0,
+      "risk_files_total": 42,
+      "risk_files_detected": 39,
+      "risk_files_missed": [
+        ".vscode/sftp.json",
+        "db/mongoid.yml",
+        "web/var/www/public_html/config.php"
+      ],
+      "file_precision": 0.9512,
+      "risk_file_recall": 0.9286,
+      "file_f1": 0.9398,
+      "per_file": [
+        {
+          "file": ".bash_profile",
+          "expected": 11,
+          "risk": 6,
+          "found": 5
+        },
+        {
+          "file": ".bashrc",
+          "expected": 6,
+          "risk": 3,
+          "found": 3
+        },
+        {
+          "file": ".docker/.dockercfg",
+          "expected": 4,
+          "risk": 2,
+          "found": 1
+        },
+        {
+          "file": ".docker/config.json",
+          "expected": 4,
+          "risk": 2,
+          "found": 1
+        },
+        {
+          "file": ".mozilla/firefox/logins.json",
+          "expected": 28,
+          "risk": 8,
+          "found": 4
+        },
+        {
+          "file": ".ssh/id_rsa",
+          "expected": 1,
+          "risk": 1,
+          "found": 1
+        },
+        {
+          "file": ".ssh/id_rsa.pub",
+          "expected": 1,
+          "risk": 0,
+          "found": 1
+        },
+        {
+          "file": "cloud/.credentials",
+          "expected": 4,
+          "risk": 2,
+          "found": 1
+        },
+        {
+          "file": "cloud/.s3cfg",
+          "expected": 3,
+          "risk": 1,
+          "found": 2
+        },
+        {
+          "file": "cloud/.tugboat",
+          "expected": 3,
+          "risk": 1,
+          "found": 2
+        },
+        {
+          "file": "cloud/heroku.json",
+          "expected": 2,
+          "risk": 1,
+          "found": 1
+        },
+        {
+          "file": "db/dump.sql",
+          "expected": 10,
+          "risk": 10,
+          "found": 11
+        },
+        {
+          "file": "db/mongoid.yml",
+          "expected": 1,
+          "risk": 1,
+          "found": 0
+        },
+        {
+          "file": "etc/shadow",
+          "expected": 1,
+          "risk": 1,
+          "found": 2
+        },
+        {
+          "file": "filezilla/recentservers.xml",
+          "expected": 6,
+          "risk": 3,
+          "found": 1
+        },
+        {
+          "file": "filezilla/filezilla.xml",
+          "expected": 3,
+          "risk": 2,
+          "found": 1
+        },
+        {
+          "file": "high-entropy-misc.txt",
+          "expected": 2,
+          "risk": 0,
+          "found": 2
+        },
+        {
+          "file": "misc-keys/cert-key.pem",
+          "expected": 1,
+          "risk": 1,
+          "found": 1
+        },
+        {
+          "file": "misc-keys/putty-example.ppk",
+          "expected": 2,
+          "risk": 1,
+          "found": 1
+        },
+        {
+          "file": "proftpdpasswd",
+          "expected": 1,
+          "risk": 1,
+          "found": 1
+        },
+        {
+          "file": "web/ruby/config/master.key",
+          "expected": 1,
+          "risk": 1,
+          "found": 1
+        },
+        {
+          "file": "web/ruby/secrets.yml",
+          "expected": 3,
+          "risk": 3,
+          "found": 3
+        },
+        {
+          "file": "web/var/www/.env",
+          "expected": 10,
+          "risk": 6,
+          "found": 3
+        },
+        {
+          "file": ".npmrc",
+          "expected": 3,
+          "risk": 2,
+          "found": 2
+        },
+        {
+          "file": "web/var/www/public_html/wp-config.php",
+          "expected": 12,
+          "risk": 9,
+          "found": 9
+        },
+        {
+          "file": "web/var/www/public_html/.htpasswd",
+          "expected": 1,
+          "risk": 1,
+          "found": 1
+        },
+        {
+          "file": ".git-credentials",
+          "expected": 1,
+          "risk": 1,
+          "found": 1
+        },
+        {
+          "file": "db/robomongo.json",
+          "expected": 7,
+          "risk": 3,
+          "found": 1
+        },
+        {
+          "file": "web/js/salesforce.js",
+          "expected": 1,
+          "risk": 1,
+          "found": 1
+        },
+        {
+          "file": ".netrc",
+          "expected": 2,
+          "risk": 2,
+          "found": 1
+        },
+        {
+          "file": "hub",
+          "expected": 2,
+          "risk": 1,
+          "found": 1
+        },
+        {
+          "file": "config",
+          "expected": 4,
+          "risk": 1,
+          "found": 1
+        },
+        {
+          "file": "db/.pgpass",
+          "expected": 1,
+          "risk": 1,
+          "found": 1
+        },
+        {
+          "file": "ventrilo_srv.ini",
+          "expected": 2,
+          "risk": 2,
+          "found": 2
+        },
+        {
+          "file": "web/var/www/public_html/config.php",
+          "expected": 4,
+          "risk": 1,
+          "found": 0
+        },
+        {
+          "file": "db/dbeaver-data-sources.xml",
+          "expected": 1,
+          "risk": 1,
+          "found": 2
+        },
+        {
+          "file": ".esmtprc",
+          "expected": 3,
+          "risk": 2,
+          "found": 1
+        },
+        {
+          "file": "web/django/settings.py",
+          "expected": 1,
+          "risk": 1,
+          "found": 1
+        },
+        {
+          "file": "deployment-config.json",
+          "expected": 4,
+          "risk": 3,
+          "found": 1
+        },
+        {
+          "file": ".ftpconfig",
+          "expected": 5,
+          "risk": 3,
+          "found": 1
+        },
+        {
+          "file": ".remote-sync.json",
+          "expected": 3,
+          "risk": 1,
+          "found": 1
+        },
+        {
+          "file": ".vscode/sftp.json",
+          "expected": 4,
+          "risk": 1,
+          "found": 0
+        },
+        {
+          "file": "sftp-config.json",
+          "expected": 4,
+          "risk": 1,
+          "found": 1
+        },
+        {
+          "file": ".idea/WebServers.xml",
+          "expected": 2,
+          "risk": 1,
+          "found": 2
+        }
+      ],
+      "wall_seconds": 1.103
+    }
   }
 }

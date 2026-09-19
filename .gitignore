@@ -44,3 +44,5 @@ testdata/leaky.env
 # Session scratch. Internal handoffs, rerun scripts and working notes.
 # Not product, and not for a public repo.
 Claude outputs/
+__pycache__/
+log/

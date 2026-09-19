@@ -93,6 +93,16 @@ def run_klarion_ai(dataset):
     )
 
 
+def run_klarion_cs(dataset):
+    # Keyless: CredSweeper's ML model as the judge. KLARION_CS_NOMATCH picks
+    # the policy for candidates CredSweeper never extracted (see the script).
+    # Klarion reports paths relative to the scan root; the judge needs it.
+    os.environ["KLARION_CS_ROOT"] = str(TARGETS / dataset)
+    return _run_klarion_cmd(
+        dataset, ["--config", str(HERE / "klarion-cs.toml")]
+    )
+
+
 def run_gitleaks(dataset):
     report = RAW / f"gitleaks-{dataset}.json"
     _, dt = sh(
@@ -165,6 +175,8 @@ def run_ripsecrets(dataset):
 RUNNERS = {
     "klarion": run_klarion,
     "klarion-ai": run_klarion_ai,
+    "klarion-cs": run_klarion_cs,
+    "klarion-cs-unc": lambda d: (os.environ.__setitem__("KLARION_CS_NOMATCH", "uncertain"), run_klarion_cs(d))[1],
     "gitleaks": run_gitleaks,
     "trufflehog": run_trufflehog,
     "detect-secrets": run_detect_secrets,

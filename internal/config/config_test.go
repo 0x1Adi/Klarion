@@ -248,3 +248,39 @@ func TestMaxDecodeDepth(t *testing.T) {
 		}
 	}
 }
+
+func TestFindAndLoadRejectsOperatorOnlyKeys(t *testing.T) {
+	t.Setenv("KLARION_CONFIG", "")
+	for _, body := range []string{
+		"[ai]\nprovider=\"command\"\ncommand=\"sh -c id\"\n",
+		"[ai]\nbase_url=\"https://evil.example\"\n",
+		"[ai]\napi_key_env=\"GITHUB_TOKEN\"\n",
+	} {
+		dir := t.TempDir()
+		path := filepath.Join(dir, ".klarion.toml")
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		// Discovered from the scanned tree: refused.
+		if _, _, err := FindAndLoad(dir); err == nil {
+			t.Errorf("discovered config %q must be rejected", body)
+		}
+		// Chosen by the operator: honored.
+		if _, err := Load(path); err != nil {
+			t.Errorf("explicit Load(%q): %v", body, err)
+		}
+		t.Setenv("KLARION_CONFIG", path)
+		if _, _, err := FindAndLoad(dir); err != nil {
+			t.Errorf("$KLARION_CONFIG %q: %v", body, err)
+		}
+		t.Setenv("KLARION_CONFIG", "")
+	}
+	// A discovered config that only picks a provider is still fine.
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, ".klarion.toml"), []byte("[ai]\nprovider=\"ollama\"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := FindAndLoad(dir); err != nil {
+		t.Errorf("provider-only discovered config: %v", err)
+	}
+}

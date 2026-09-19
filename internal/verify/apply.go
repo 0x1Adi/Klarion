@@ -71,6 +71,8 @@ func buildProvider(cfg *config.AIConfig) Verifier {
 		return newOpenAI(cfg)
 	case "claude-cli", "claude-code":
 		return newClaudeCLI(cfg)
+	case "command":
+		return newCommand(cfg)
 	default:
 		return newAnthropic(cfg)
 	}
@@ -121,6 +123,8 @@ func hasCredentials(cfg *config.AIConfig) bool {
 		return true
 	case "claude-cli", "claude-code":
 		return claudeCLIAvailable()
+	case "command":
+		return commandAvailable(cfg)
 	}
 	return apiKey(cfg) != ""
 }
@@ -130,6 +134,8 @@ func credsHint(cfg *config.AIConfig) string {
 	switch providerName(cfg) {
 	case "claude-cli", "claude-code":
 		return "claude CLI not found on PATH"
+	case "command":
+		return "set ai.command to an executable judge (first word must resolve on PATH)"
 	}
 	if env := keyEnvName(cfg); env != "" {
 		return "set env " + env

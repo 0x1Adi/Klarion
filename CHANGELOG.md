@@ -5,6 +5,27 @@ All notable changes to Klarion are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+
+- **A discovered `.klarion.toml` can no longer choose where secrets go or what runs.**
+  `ai.base_url`, `ai.api_key_env` and the new `ai.command` are honored only from
+  `--config` or `$KLARION_CONFIG`. Before this, a repository could commit a config that
+  pointed the model call at its own server with any env var as the bearer token, and
+  every machine that scanned it (CI, commit hooks, the MCP server) would comply. A
+  discovered file that sets one of these keys is now a hard error, not a silent
+  downgrade, because ignoring `base_url` would quietly send candidates to the public
+  endpoint instead of the proxy the file named.
+
+### Added
+
+- **`ai.provider = "command"`** runs an operator-supplied program as the judge: a JSON
+  array of candidates on stdin, the same `{"results":[...]}` object the model providers
+  return on stdout. No key, no network. Built to measure a local model as the judge
+  (`benchmark/REPORT.md` §15); the local model did not pass, the provider stays as the
+  way to plug in your own.
+
 ## [0.3.8] - 2026-09-18
 
 ### Added

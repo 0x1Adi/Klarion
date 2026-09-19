@@ -231,6 +231,12 @@ directory. `$KLARION_CONFIG` and `--config` override that. Everything layers on 
 defaults, so your config only needs the keys you want to change. Unknown keys are a hard
 error, which catches typos.
 
+Three keys are honored only from `--config` or `$KLARION_CONFIG`, never from a discovered
+file: `ai.command`, `ai.base_url` and `ai.api_key_env`. A discovered `.klarion.toml`
+belongs to the repository being scanned, and those keys decide where candidate secrets are
+sent and what program runs. A discovered file that sets one is a hard error, so a repository
+cannot redirect your scan or run code on your machine, in CI or in a commit hook.
+
 ### Full annotated config
 
 ```toml
@@ -278,11 +284,13 @@ stopwords = ["acme_demo"]                           # extra placeholder markers
 
 [ai]
 mode = "on"                        # default; requires a real verifier. auto silently degrades, off is entropy-only
-provider = "anthropic"             # anthropic, openai, ollama or claude-cli
+provider = "anthropic"             # anthropic, openai, ollama, claude-cli or command
 model = "claude-haiku-4-5"         # fast and cheap for classification
-base_url = ""                      # override endpoint for OpenAI compatible or Ollama
+base_url = ""                      # override endpoint for OpenAI compatible or Ollama (--config only)
 api_key_env = ""                   # defaults per provider: anthropic ->
-                                   # ANTHROPIC_API_KEY, openai -> OPENAI_API_KEY
+                                   # ANTHROPIC_API_KEY, openai -> OPENAI_API_KEY (--config only)
+command = ""                       # provider "command": program that judges the batch; JSON array
+                                   # of candidates on stdin, {"results":[...]} on stdout (--config only)
 max_batch = 8                      # findings per model request
 max_concurrency = 4                # batches adjudicated in parallel
 cache_path = ""                    # persist verdicts between runs; "" disables
@@ -321,6 +329,9 @@ base_url = "https://api.openai.com/v1"
 api_key_env = "OPENAI_API_KEY"
 model = "gpt-4o-mini"
 ```
+
+Pass that file with `--config` or `$KLARION_CONFIG`: `base_url` and `api_key_env` are refused
+from a discovered `.klarion.toml` (see Configuration).
 
 For a fully local setup, Ollama defaults `base_url` to `http://localhost:11434/v1`:
 

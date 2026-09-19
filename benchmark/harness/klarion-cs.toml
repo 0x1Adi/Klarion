@@ -1,0 +1,15 @@
+# Klarion keyless benchmark config: adjudicate with CredSweeper's local ML model
+# via scripts/credsweeper_judge.py. Path is relative to the harness cwd
+# (benchmark/datasets/scan-targets). No API key, no network.
+[ai]
+mode = "on"
+provider = "command"
+command = "python3 ../../../benchmark/credsweeper/credsweeper_judge.py"
+max_batch = 200              # one CredSweeper launch per batch: keep batches big
+max_concurrency = 1
+timeout_seconds = 600
+on_error = "fail"
+filter_false_positives = true
+min_confidence = 0.6
+send_secret = true
+max_context_lines = 5
