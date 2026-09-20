@@ -70,7 +70,7 @@ and `--force` would delete it.
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/0x1Adi/Klarion
-    rev: v0.4.2
+    rev: v0.4.3
     hooks:
       - id: klarion           # builds Klarion with Go on first use
         stages: [pre-commit]  # without this line the hook stays off
@@ -106,7 +106,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0       # needed so a PR's base commit is available
-      - uses: 0x1Adi/Klarion@v0.4.2
+      - uses: 0x1Adi/Klarion@v0.4.3
         with:
           fail-on-severity: medium
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -123,7 +123,7 @@ That is the whole configuration. By default the action:
   `ai-mode: auto` continues with a warning and raw entropy output, which is
   too noisy to rely on.
 - **installs the scanner matching the release you pinned**, by tag or commit
-  SHA: `@v0.4.2` runs the v0.4.2 binary, and `@v0` runs the release `v0`
+  SHA: `@v0.4.3` runs the v0.4.3 binary, and `@v0` runs the release `v0`
   points to.
 - **lists findings in the job log and as annotations**: file, line, rule and
   verdict, never the value. If GitHub rejects the Security tab upload (a
@@ -134,7 +134,7 @@ That is the whole configuration. By default the action:
 Useful overrides:
 
 ```yaml
-      - uses: 0x1Adi/Klarion@v0.4.2
+      - uses: 0x1Adi/Klarion@v0.4.3
         with:
           scan-mode: full          # auto | diff | full | history
           base: ${{ github.event.pull_request.base.sha }}
