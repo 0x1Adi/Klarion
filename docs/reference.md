@@ -168,6 +168,11 @@ The repository is its own plugin marketplace:
 /plugin install klarion@klarion
 ```
 
+Then **restart Claude Code**. Hooks are loaded when a session starts, so a plugin installed
+mid-session shows as enabled and its command works, but nothing is scanned until you restart.
+`/clear` and `/reload-plugins` do not reload hooks. Confirm with `/hooks`: the Klarion
+`PreToolUse` entries for `Write|Edit|MultiEdit` and `Bash` should be listed.
+
 The hook runs `klarion hook --event pre-tool-use` for `Write`, `Edit` and `MultiEdit`, and a
 `--bash` variant for shell commands. For `git add`, `git stage` and `git commit` it also scans
 what the command could commit: changed lines of tracked files and untracked files that

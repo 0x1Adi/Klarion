@@ -24,6 +24,13 @@ It works in two steps:
 Pattern scanners stop at step 1, so they also flag test values, IDs and hashes. Klarion shows
 you the real leaks.
 
+### It runs where the leak happens
+
+A Claude Code hook that blocks the write before the file exists. The agent cannot route around it,
+not through the file tools and not through Bash.
+
+![A coding agent is told to hardcode an AWS key pair. Klarion's pre-tool hook blocks the write at 95% confidence, and the agent reports that it cannot land the credentials through Bash or the file tools.](./assets/klarion-hook.gif)
+
 ```console
 $ klarion scan .
 
@@ -69,7 +76,7 @@ Settings go in `.klarion.toml` under `[ai]`. All options are in the [reference](
 | Scan a folder | `klarion scan .` |
 | Block commits that add a secret | `klarion protect` |
 | Block commits with the [pre-commit](https://pre-commit.com) framework | The `.pre-commit-config.yaml` below |
-| Stop Claude Code from writing a secret | `/plugin marketplace add 0x1Adi/Klarion` then `/plugin install klarion@klarion` |
+| Stop Claude Code from writing a secret | `/plugin marketplace add 0x1Adi/Klarion`, `/plugin install klarion@klarion`, then restart Claude Code |
 | Stop Cline, Cursor or any MCP agent from writing a secret | The MCP server below |
 | Fail pull requests that add a secret | The GitHub Action below |
 | Start on a repo that already has findings | `klarion baseline create`, so only new secrets fail |

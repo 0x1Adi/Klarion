@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "command -v klarion >/dev/null 2>&1 || echo 'Klarion plugin: the klarion binary is not on PATH, so file writes and git commits in this session are NOT being scanned for secrets. Tell the user to install it (go install github.com/0x1Adi/Klarion/cmd/klarion@latest, or a release from https://github.com/0x1Adi/Klarion/releases) and restart Claude Code.'",
+            "command": "command -v klarion >/dev/null 2>&1 || echo 'Klarion plugin: the klarion binary is not on PATH, so file writes and git commits in this session are NOT being scanned for secrets. Tell the user to install it (brew install 0x1Adi/tap/klarion, go install github.com/0x1Adi/Klarion/cmd/klarion@latest, or a release from https://github.com/0x1Adi/Klarion/releases) and restart Claude Code.'",
             "timeout": 10
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "command -v klarion >/dev/null 2>&1 || { echo 'Klarion is not installed, so this change was NOT scanned for secrets. Install it: go install github.com/0x1Adi/Klarion/cmd/klarion@latest' >&2; exit 1; }; exec klarion hook --event pre-tool-use",
+            "command": "command -v klarion >/dev/null 2>&1 || { echo 'Klarion is not installed, so this change was NOT scanned for secrets. Install it: brew install 0x1Adi/tap/klarion, or go install github.com/0x1Adi/Klarion/cmd/klarion@latest' >&2; exit 1; }; exec klarion hook --event pre-tool-use",
             "timeout": 60
           }
         ]
@@ -27,7 +27,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "command -v klarion >/dev/null 2>&1 || { echo 'Klarion is not installed, so this change was NOT scanned for secrets. Install it: go install github.com/0x1Adi/Klarion/cmd/klarion@latest' >&2; exit 1; }; exec klarion hook --event pre-tool-use --bash",
+            "command": "command -v klarion >/dev/null 2>&1 || { echo 'Klarion is not installed, so this change was NOT scanned for secrets. Install it: brew install 0x1Adi/tap/klarion, or go install github.com/0x1Adi/Klarion/cmd/klarion@latest' >&2; exit 1; }; exec klarion hook --event pre-tool-use --bash",
             "timeout": 60
           }
         ]

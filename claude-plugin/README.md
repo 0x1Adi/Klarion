@@ -85,6 +85,11 @@ This repository is its own marketplace:
 /plugin install klarion@klarion
 ```
 
+Then **restart Claude Code**. Hooks are loaded when a session starts, so a plugin installed
+mid-session shows as enabled and its command works, but nothing is scanned until you restart.
+`/clear` and `/reload-plugins` do not reload hooks. Confirm with `/hooks`: the Klarion
+`PreToolUse` entries for `Write|Edit|MultiEdit` and `Bash` should be listed.
+
 ## Configuration
 
 Behavior is controlled by `.klarion.toml` in your project (see the main
