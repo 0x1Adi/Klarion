@@ -37,6 +37,14 @@ Summary: 1 finding(s) across 1 file(s), 198 suppressed [1204 files scanned in 61
 
 ## Install
 
+macOS:
+
+```sh
+brew install 0x1Adi/tap/klarion
+```
+
+Anywhere else, with Go 1.25 or newer:
+
 ```sh
 go install github.com/0x1Adi/Klarion/cmd/klarion@latest
 ```

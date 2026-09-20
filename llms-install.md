@@ -7,13 +7,19 @@ agent check content **before** it writes it to disk or commits it.
 
 ## 1. Install the binary
 
+On macOS, with Homebrew:
+
+```sh
+brew install 0x1Adi/tap/klarion
+```
+
 With Go 1.25 or newer:
 
 ```sh
 go install github.com/0x1Adi/Klarion/cmd/klarion@latest
 ```
 
-Without Go, download the archive for this platform from
+Without either, download the archive for this platform from
 <https://github.com/0x1Adi/Klarion/releases/latest>, unpack it, and put `klarion` on `PATH`.
 
 Confirm it works:

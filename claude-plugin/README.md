@@ -16,13 +16,14 @@ to your MCP settings yourself, see [llms-install.md](../llms-install.md).
 
 ## Prerequisites
 
-Install the `klarion` binary and put it on `PATH`:
+Install the `klarion` binary and put it on `PATH`. On macOS:
 
 ```sh
-go install github.com/0x1Adi/Klarion/cmd/klarion@latest
+brew install 0x1Adi/tap/klarion
 ```
 
-Or download a binary from the [releases page](https://github.com/0x1Adi/Klarion/releases).
+Or `go install github.com/0x1Adi/Klarion/cmd/klarion@latest`, or download a binary from the
+[releases page](https://github.com/0x1Adi/Klarion/releases).
 
 Configure a model. Either set an API key:
 

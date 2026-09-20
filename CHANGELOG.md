@@ -5,6 +5,19 @@ All notable changes to Klarion are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.3] - 2026-09-20
+
+### Added
+
+- **Homebrew tap.** `brew install 0x1Adi/tap/klarion`. Each release publishes a cask to
+  `0x1Adi/homebrew-tap`.
+
+## [0.4.2] - 2026-09-20
+
+Incomplete release, use 0.4.3. The Homebrew cask push failed on a token permission, which
+aborted the workflow before the MCP bundle was attached, so this tag has no `.mcpb` asset.
+Binaries, checksums, signatures and the Action are unaffected.
+
 ## [0.4.1] - 2026-09-19
 
 - gosec G117 suppression in the command provider; no behavior change.
