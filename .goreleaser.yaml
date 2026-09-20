@@ -117,12 +117,23 @@ homebrew_casks:
     commit_author:
       name: goreleaser
       email: noreply@github.com
-    # No dequarantine hook on purpose. Verified 2026-09-20 on macOS arm64: the cask
-    # installs and `klarion version` runs without stripping com.apple.quarantine.
-    # A hook here makes goreleaser emit Homebrew's deprecated `postflight` stanza
-    # (goreleaser #6870), which prints a "report this to your tap" warning to every
-    # installer. Revisit if a user hits Gatekeeper, or when goreleaser v2.19 lands
-    # the `postflight_steps` fix.
+    # This hook is load-bearing, do not remove it. Homebrew quarantines the
+    # downloaded archive; the binary is unsigned and not notarized, so without the
+    # strip macOS refuses to run it: `"klarion" Not Opened - Apple could not verify
+    # "klarion" is free of malware`. Confirmed on macOS arm64, 2026-09-20.
+    #
+    # Cost: goreleaser emits Homebrew's deprecated `postflight` stanza for this
+    # (goreleaser #6870), so every installer sees a "report this to your tap"
+    # warning until goreleaser v2.19 ships `postflight_steps`.
+    #
+    # The real fix is Developer ID signing + notarization, which removes both the
+    # dialog and the need for this hook. Requires a paid Apple Developer account.
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/klarion"]
+          end
 
 # DEFERRED — GHCR image. The `dockers:` block and the Buildx + GHCR login steps
 # in .github/workflows/release.yml were removed together and must be restored
