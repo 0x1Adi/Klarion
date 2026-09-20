@@ -94,18 +94,43 @@ changelog:
       - "Merge pull request"
       - "Merge branch"
 
-# DEFERRED TO v0.1.1 — Homebrew tap and GHCR image.
+# Homebrew tap. `brews:` (formulas) was soft-deprecated in goreleaser v2.10,
+# formally deprecated in v2.16, and goes away in v3; casks are the supported way
+# to ship pre-compiled binaries. No tap_migrations.json is needed because this
+# tap never published a formula.
 #
-# Both were removed from v0.1.0 deliberately. `brews:` referenced
-# {{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}, and goreleaser hard-errors on an unset
-# .Env key; the tap repo (0x1Adi/homebrew-tap) does not exist yet, and the
-# repo-scoped GITHUB_TOKEN cannot push to a different repository regardless.
-# A failure in either publisher aborts `release --clean` and takes the binaries
-# and archives down with it — so a broken tap would mean no release at all.
-#
-# To re-enable: create 0x1Adi/homebrew-tap, add a PAT with `contents: write` on
-# it as the HOMEBREW_TAP_GITHUB_TOKEN secret, restore the blocks, and restore
-# the Buildx + GHCR login steps in .github/workflows/release.yml.
+# A failure here aborts `release --clean` and takes the binaries and archives
+# down with it, so HOMEBREW_TAP_GITHUB_TOKEN must exist on the repo before the
+# next tag push: goreleaser hard-errors on an unset .Env key at config load.
+homebrew_casks:
+  - name: klarion
+    ids: [klarion]
+    binaries: [klarion]
+    directory: Casks
+    homepage: "https://github.com/0x1Adi/Klarion"
+    description: "Secret scanning that a model verifies. Entropy narrows the search, an LLM decides what is real."
+    repository:
+      owner: 0x1Adi
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    commit_author:
+      name: goreleaser
+      email: noreply@github.com
+    # An unsigned binary delivered by a cask is quarantined by Gatekeeper, so
+    # the first run dies with "cannot be opened because the developer cannot be
+    # verified". Strip the attribute at install time.
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/klarion"]
+          end
+
+# DEFERRED — GHCR image. The `dockers:` block and the Buildx + GHCR login steps
+# in .github/workflows/release.yml were removed together and must be restored
+# together: goreleaser pushes during `release --clean`, so a `dockers:` block
+# without a logged-in registry aborts the whole release.
 
 release:
   github:

@@ -60,9 +60,11 @@ jobs:
           args: release --clean
         env:
           # Repo-scoped: enough to create the Release and upload assets here.
-          # It CANNOT push to a separate tap repo — that needs a PAT, added
-          # back with the `brews:` block in v0.1.1.
+          # It cannot push to the tap repo; homebrew_casks uses the PAT below.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Fine-grained PAT, contents: write on 0x1Adi/homebrew-tap only.
+          # goreleaser hard-errors at config load if this is unset.
+          HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}
 
       # The MCP registry lists a bundle, not a repository: one .mcpb carrying
       # every platform binary, because neither the MCPB manifest nor server.json
