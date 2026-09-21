@@ -16,7 +16,7 @@
 
 ## TL;DR
 
-> **Updated 2026-09-17.** The bullets under this box describe the 2026-07-09 build. Detection
+> **Updated 2026-09-21.** The bullets under this box describe the 2026-07-09 build. Detection
 > has changed since (see CHANGELOG), so that build's clean-corpus count of 0 and leaky-repo
 > recall of 43% are not current. Current numbers:
 >
@@ -27,7 +27,12 @@
 >   gitleaks 0.46.
 > - **leaky-repo (synthetic secrets, in sample):** Klarion finds 69% of risk files at file
 >   precision 1.00, F1 0.82 (`bf5d7c2`, claude-cli haiku); detect-secrets 55% at 0.96, F1 0.70.
-> - **flask + rails false positives (current detection, `bf5d7c2`, claude-cli haiku):** 9 (flask 1,
+> - **Cross-tool false positives, four unseen ecosystems, v0.4.3 ([§16](#16-addendum--cross-tool-false-positive-load-and-the-language-effect-2026-09-21)):** 61,514 files of
+>   Java, Go, TypeScript and PHP. Klarion + model **11**, gitleaks 361, trufflehog 344,
+>   ripsecrets 299, detect-secrets 12,073. All 11 audited by hand; all are false positives. The
+>   pre-filter alone gives 491 and carries a 3.1x language bias that adjudication removes.
+> - **flask + rails at v0.4.3 ([§16](#16-addendum--cross-tool-false-positive-load-and-the-language-effect-2026-09-21)):** 1 (flask 1, rails 0), down from the 9 below.
+> - **flask + rails false positives (2026-09-17 measurement, `bf5d7c2`, claude-cli haiku):** 9 (flask 1,
 >   rails 8), each checked by hand: documentation examples (Flask's sample `SECRET_KEY`, Rails
 >   guide `secret_key_base` and `authenticity_token` values) and generator templates with local
 >   database defaults. trufflehog 9, gitleaks 33, ripsecrets 61, detect-secrets 247 (§3). The
@@ -310,6 +315,12 @@ Scores: `results/accuracy.json` · agent study (audits, gaps, features, verifica
 
 *Added 2026-08-08, after §10. This section exists because §10's headline number
 is overfit and was being quoted as a general claim.*
+
+> **Superseded in part, 2026-09-21.** The counts in this section are a dated measurement of the
+> 2026-08-08 build. At v0.4.3 the same four ecosystems give **491** pre-filter findings and **11**
+> adjudicated, not 1,516 and 316 — the armored-block defect below accounts for most of the
+> difference and has since been fixed. The corpora here were shallow-cloned at HEAD and cannot be
+> re-derived; [§16](#16-addendum--cross-tool-false-positive-load-and-the-language-effect-2026-09-21) pins them by commit and measures all five tools on them.
 
 ### Why this was measured
 
@@ -766,3 +777,135 @@ Config: `benchmark/harness/klarion-cs.toml`. Judge: `benchmark/credsweeper/creds
 (`--selftest` checks one key, one placeholder, one identifier; `KLARION_CS_DUMP=<file>`
 writes one JSON line per candidate). Results: `results/accuracy.json`, rows `klarion-cs`
 and `klarion-cs-unc`.
+
+
+## 16. Addendum — cross-tool false positive load, and the language effect (2026-09-21)
+
+*The first measurement in this report of all five scanners on the four unseen ecosystems.
+§3 compared all five, but only on flask and rails. §12 used the four ecosystems, but only
+Klarion. This closes that gap, and re-measures Klarion at v0.4.3.*
+
+### Why this was measured
+
+§12 claims entropy cannot separate long identifiers from credentials in Java, Go, JS and PHP.
+That is a claim about the technique, not about Klarion, and it had never been tested against
+another tool. If it is real, other entropy-based scanners must show it too.
+
+### Method
+
+Five tools, six corpora, pinned by commit. Same invocations as `harness/run_benchmark.py`.
+Competitors run on Linux; Klarion's AI pass run on macOS via `provider = "claude-cli"`,
+model `haiku`, `max_batch = 25`, `max_concurrency = 8`. Counts are deterministic; timings
+are not comparable across machines and are not reported here.
+
+| corpus | commit |
+|---|---|
+| spring-boot | `adbbf047320013ee42284d6957293aaf75a56ad7` |
+| terraform | `78194be60cdab9c71ea1caf5e5c0b4d96e2c3691` |
+| next.js | `34433fd12ee8074ea3f47af9f36255c7390d0301` |
+| symfony | `15c65b4d72b128f39265017bcb729888fd342fb3` |
+| flask | `36e4a824f340fdee7ed50937ba8e7f6bc7d17f81` |
+| rails | `52d9587a5e5b0fbda40da7b2c52f2307ed2c12c0` |
+
+The four ecosystems had no pinned commit anywhere in this repository before today. §12 used a
+shallow clone at HEAD, so its numbers cannot be re-derived. These are pinned and now in
+`fetch-datasets.sh`.
+
+**Validation.** The four competitors reproduce §3 exactly on flask and rails: gitleaks 6/27,
+trufflehog 0/9, detect-secrets 23/224, ripsecrets 6/55. Eight cells, all exact.
+
+### Result
+
+Tool versions: klarion 0.4.3, gitleaks 8.30.1, trufflehog 3.97.5, detect-secrets 1.5.0,
+ripsecrets 0.1.11.
+
+| tool | four ecosystems (61,514 files) | control (5,054 files) | eco /1k | ctl /1k | ratio |
+|---|---|---|---|---|---|
+| **Klarion + model** | **11** | **1** | **0.18** | **0.20** | **0.9x** |
+| Klarion pre-filter (no model) | 491 | 13 | 7.98 | 2.57 | 3.1x |
+| gitleaks | 361 | 33 | 5.87 | 6.53 | 0.9x |
+| trufflehog | 344 | 9 | 5.59 | 1.78 | 3.1x |
+| detect-secrets | 12,073 | 247 | 196.26 | 48.87 | 4.0x |
+| ripsecrets | 299 | 61 | 4.86 | 12.07 | 0.4x |
+
+Control is flask + rails (Python, Ruby). The four ecosystems are Java, Go/HCL, TypeScript, PHP.
+
+### What this shows
+
+**The language effect is real, and it is specific to entropy.** Klarion's pre-filter emits 3.1x
+more per file on the typed corpora than on the control. trufflehog 3.1x, detect-secrets 4.0x.
+gitleaks (0.9x) and ripsecrets (0.4x) are flat or inverted — consistent with detection that is
+predominantly rule-based, where identifier length is irrelevant.
+
+**Adjudication removes the bias, not just the volume.** Klarion with the model is 0.20 per 1k on
+the control and 0.18 on the four ecosystems: flat, ratio 0.9x. The pre-filter's language
+sensitivity does not survive the model.
+
+**detect-secrets is the outlier**: 196 findings per 1,000 files, 8,209 on next.js alone.
+
+### Every Klarion finding, audited
+
+Eleven on the four ecosystems, one on the control. All twelve were inspected by hand — no
+sampling was required at this volume. **All twelve are false positives. Zero real secrets**, which
+is the expected result on major OSS repositories with no live credentials.
+
+| corpus | file | verdict | classification |
+|---|---|---|---|
+| flask | `docs/tutorial/deploy.rst:73` | secret 0.75 | FP — `SECRET_KEY` example in tutorial docs |
+| terraform | `internal/releaseauth/signature.go` ×4 | uncertain 0.50 | FP — PGP **public** key armored blocks |
+| symfony | `Mailchimp/Tests/Webhook/*` ×3 | uncertain 0.75 | FP — shared dummy `key-…yk26` |
+| symfony | `Mailgun/Tests/Webhook/MailgunRequestParserTest.php:75` | secret 0.95 | FP — same value as above, different verdict |
+| symfony | `Twilio/Tests/Webhook/Fixtures/delivered.txt:1` | secret 0.85 | FP — path contains `/Fixtures/` |
+| spring-boot | `OpenLdapContainerConnectionDetailsFactory.java:86` | secret 0.95 | FP — testcontainers default |
+| spring-boot | `RabbitProperties.java:87` | secret 0.75 | FP — RabbitMQ's documented `guest` default |
+
+### Defects this surfaced
+
+1. **Same value, two verdicts.** `key-…yk26` appears in four symfony test files. Three return
+   `uncertain 0.75`, one returns `secret 0.95`. Either surrounding context is swinging the call or
+   adjudication is not deterministic across batches. Unresolved.
+2. **A `/Fixtures/` path did not trigger the test-path rule**, and was kept at 0.85.
+3. **PGP public key blocks are still candidates.** The per-line explosion fixed after §12 is gone;
+   the class is not suppressed. Four of the eleven.
+4. **Documented framework defaults are flagged as secrets** (RabbitMQ `guest`).
+5. Four of eleven ecosystem findings are `uncertain`, kept under the "uncertain counts as a
+   secret" policy. That policy is the single largest lever on this number.
+
+### How this changes §12 and §3
+
+- **§12's 1,516 pre-filter findings are 491 at v0.4.3.** §12 attributed 296 of terraform's 367 to
+  the armored-block defect; those two files now produce 9. §12's numbers stand as a dated
+  measurement of that build and are not restated here.
+- **§12's 316 adjudicated findings are 11 at v0.4.3.**
+- **The TL;DR's flask + rails figure of 9 (flask 1, rails 8) is now 1 (flask 1, rails 0).**
+- §3's Klarion rows describe the 2026-07-09 build and remain as published; the current figures are
+  in the table above.
+
+### Limitations
+
+This measures **false positive load only**. None of these corpora contain planted secrets, so this
+says nothing about recall, and a low count is only good if recall holds — see §2 and §14, which
+this run does not affect.
+
+The four ecosystems are at 2026-09-21 HEAD, not the HEAD §12 used, so version and corpus changes
+are confounded in the 1,516-to-491 comparison. The armored-block arithmetic favours version, but
+the two cannot be fully separated because §12's commits were never recorded.
+
+The twelve classifications are one person's reading. The PGP public keys and the RabbitMQ default
+are unambiguous; the spring-boot LDAP testcontainer default is a judgement call.
+
+### Reproduce
+
+```sh
+sh benchmark/fetch-datasets.sh          # now pins all seven corpora
+cd benchmark/harness
+BENCH_DATASETS=spring-boot,terraform,next.js,symfony \
+  python3 run_benchmark.py klarion,gitleaks,trufflehog,detect-secrets,ripsecrets
+BENCH_DATASETS=flask,rails \
+  python3 run_benchmark.py klarion,gitleaks,trufflehog,detect-secrets,ripsecrets
+```
+
+The Klarion column needs a configured model. The published run used
+`provider = "claude-cli"`, `model = "haiku"`, `max_batch = 25`, `max_concurrency = 8`,
+passed with `--config`. `claude-cli` spawns one process per batch, so batch size dominates
+wall clock: 5,571 candidates took about 36 minutes.

@@ -33,7 +33,9 @@ RAW = BENCH / "results" / "raw"
 RESULTS = BENCH / "results"
 GT_CSV = BENCH / "datasets" / "leaky-repo" / ".leaky-meta" / "secrets.csv"
 
-DATASETS = ["leaky", "flask", "rails"]
+# Override with BENCH_DATASETS=spring-boot,terraform,next.js,symfony for REPORT §16.
+# The four ecosystems are not the default: an AI run over them is ~5,500 candidates.
+DATASETS = os.environ.get("BENCH_DATASETS", "leaky,flask,rails").split(",")
 
 
 def sh(cmd, cwd, ok_codes=(0, 1), stream_stderr=False):

@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 250" width="1000" height="250" role="img" aria-label="Klarion finds leaked secrets in code. An AI model checks each one, so you see the real ones. Tested on CredData, 337 real repositories, code outside test folders: Klarion finds about 1.7 times more real secrets than gitleaks, and 89 percent of its alerts are real, against 91 percent for gitleaks and 34 percent for detect-secrets. 9 false alarms on flask and rails, gitleaks 33, detect-secrets 247. Needs an AI model.">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 250" width="1000" height="250" role="img" aria-label="Klarion finds leaked secrets in code. An AI model checks each one, so you see the real ones. Tested on CredData, 337 real repositories, code outside test folders: Klarion finds about 1.7 times more real secrets than gitleaks, and 89 percent of its alerts are real, against 91 percent for gitleaks and 34 percent for detect-secrets. 1 false alarm on flask and rails, gitleaks 33, detect-secrets 247. On four unseen codebases in Java, Go, TypeScript and PHP, 61,514 files, Klarion reported 11 findings against gitleaks 361 and detect-secrets 12,073. Needs an AI model.">
   <rect width="1000" height="250" rx="16" fill="#14110f"/>
 
   <rect x="58" y="44" width="32" height="32" rx="10" fill="#ff4d8b"/>
@@ -17,7 +17,7 @@
   <text x="468" y="217" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">of alerts are real secrets</text>
   <text x="468" y="233" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">gitleaks 91%, detect-secrets 34%</text>
 
-  <text x="712" y="226" font-family="Helvetica, Arial, sans-serif" font-size="32" font-weight="600" fill="#a4d4c5">9</text>
-  <text x="744" y="217" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">false alarms on flask and rails</text>
+  <text x="712" y="226" font-family="Helvetica, Arial, sans-serif" font-size="32" font-weight="600" fill="#a4d4c5">1</text>
+  <text x="744" y="217" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">false alarm on flask and rails</text>
   <text x="744" y="233" font-family="Helvetica, Arial, sans-serif" font-size="12" fill="#968d83">gitleaks 33, detect-secrets 247</text>
 </svg>
