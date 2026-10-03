@@ -868,7 +868,7 @@ is the expected result on major OSS repositories with no live credentials.
 3. **PGP public key blocks are still candidates.** The per-line explosion fixed after §12 is gone;
    the class is not suppressed. Four of the eleven.
 4. **Documented framework defaults are flagged as secrets** (RabbitMQ `guest`).
-5. Four of eleven ecosystem findings are `uncertain`, kept under the "uncertain counts as a
+5. Seven of eleven ecosystem findings are `uncertain`, kept under the "uncertain counts as a
    secret" policy. That policy is the single largest lever on this number.
 
 ### How this changes §12 and §3
